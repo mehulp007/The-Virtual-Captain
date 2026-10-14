@@ -1,0 +1,67 @@
+[project]
+name = "virtual-captain"
+version = "0.1.0"
+description = "Data-driven cricket field placement: shot models, a fielding simulator and optimised fields per batter."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Mehul Patil" }]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "polars>=1.0",
+    "duckdb>=1.0",
+    "pyarrow>=15",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "tqdm>=4.66",
+    "kaggle>=1.7",
+]
+
+[project.optional-dependencies]
+# Pick one: `uv sync --extra cu128` on a machine with an NVIDIA GPU, `--extra cpu` otherwise.
+cpu = ["torch>=2.5"]
+cu128 = ["torch>=2.5"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "pre-commit>=3.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/virtual_captain"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu128" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

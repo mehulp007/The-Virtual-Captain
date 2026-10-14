@@ -1,0 +1,31 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# data and experiment outputs
+data/
+mlruns/
+runs/
+checkpoints/
+*.pt
+*.ckpt
+*.zip
+
+# notebooks
+.ipynb_checkpoints/
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# local secrets
+.env
+kaggle.json
