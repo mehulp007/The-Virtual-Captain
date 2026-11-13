@@ -9,7 +9,7 @@ build/
 dist/
 
 # data and experiment outputs
-data/
+/data/
 mlruns/
 runs/
 checkpoints/
