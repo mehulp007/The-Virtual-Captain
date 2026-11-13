@@ -2,10 +2,10 @@
 
 Two heads share one network:
 
-  contact   P(no contact | bowled, lbw or stumped | ball put into play)
-  shot      for a ball put into play, a mixture density over
+  contact   P(no contact | bowled, lbw or stumped | put into play | six)
+  shot      for a ball put into play (other than a six), a mixture density over
               theta   direction (von Mises, wagon angle in radians)
-              aerial  whether it went in the air (six, caught or dropped)
+              aerial  whether it went in the air (caught or dropped)
               dist    where it ended up, as a fraction of the boundary radius (log-normal)
 
 Each mixture component has its own direction, chance of being in the air, and a separate
@@ -53,7 +53,7 @@ class ShotNet(nn.Module):
             nn.SiLU(),
             nn.Dropout(dropout),
         )
-        self.contact = nn.Linear(hidden, 3)
+        self.contact = nn.Linear(hidden, len(enc.OUTCOMES))
         # per component: weight, cos/sin of mean angle, concentration, aerial logit,
         # and log-normal (mu, sigma) for ground and aerial balls
         self.shot = nn.Linear(hidden, n_components * 9)

@@ -14,8 +14,10 @@ HOLDOUT_FROM_YEAR = 2025
 MIN_SHOT_COVERAGE = 0.9
 
 # Contact outcomes
-NO_CONTACT, FIELD_FREE_OUT, IN_PLAY = 0, 1, 2
-OUTCOMES = ("no_contact", "bowled_lbw_stumped", "in_play")
+# A six is decided by the batter, not the field (bar the odd catch on the rope), so it is
+# a contact outcome alongside the dismissals no field can prevent.
+NO_CONTACT, FIELD_FREE_OUT, IN_PLAY, SIX = 0, 1, 2, 3
+OUTCOMES = ("no_contact", "bowled_lbw_stumped", "in_play", "six")
 FIELD_FREE_WICKETS = ["bowled", "lbw", "stumped", "hit wicket"]
 
 D_MIN, D_MAX = 0.01, 1.5  # wagon distance, as a fraction of the boundary radius
@@ -63,14 +65,16 @@ def tracked_innings(lf: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def add_labels(lf: pl.LazyFrame) -> pl.LazyFrame:
-    """Contact outcome, plus aerial flag and polar shot for balls put into play.
+    """Contact outcome, plus aerial flag and polar shot for balls put into play (not sixes).
 
     Rows that can't be labelled cleanly (scored off but untracked, or caught/run out
     without a wagon point) are dropped.
     """
     field_free = pl.col("striker_out") & pl.col("wicket_type").is_in(FIELD_FREE_WICKETS)
     outcome = (
-        pl.when(pl.col("has_wagon"))
+        pl.when(pl.col("is_six"))
+        .then(SIX)
+        .when(pl.col("has_wagon"))
         .then(IN_PLAY)
         .when(field_free)
         .then(FIELD_FREE_OUT)
@@ -84,7 +88,7 @@ def add_labels(lf: pl.LazyFrame) -> pl.LazyFrame:
         lf.with_columns(outcome.cast(pl.Int8).alias("outcome"))
         .filter(pl.col("outcome").is_not_null())
         .with_columns(
-            (pl.col("is_six") | caught | dropped).alias("aerial"),
+            (caught | dropped).alias("aerial"),
             pl.col("wagon_angle").radians().alias("theta"),
             pl.col("wagon_distance").clip(D_MIN, D_MAX).alias("dist"),
         )

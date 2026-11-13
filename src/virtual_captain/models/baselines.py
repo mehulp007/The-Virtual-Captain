@@ -31,10 +31,11 @@ class BatterHistogram:
 
     def fit(self, train: pl.DataFrame) -> "BatterHistogram":
         y = train["outcome"].to_numpy()
-        self.global_outcome = np.bincount(y, minlength=3) / len(y)
+        n = len(enc.OUTCOMES)
+        self.global_outcome = np.bincount(y, minlength=n) / len(y)
         self.outcome = {}
         for (batter,), g in train.group_by(["striker_id"]):
-            counts = np.bincount(g["outcome"].to_numpy(), minlength=3)
+            counts = np.bincount(g["outcome"].to_numpy(), minlength=n)
             self.outcome[batter] = (counts + self.outcome_prior * self.global_outcome) / (
                 counts.sum() + self.outcome_prior
             )

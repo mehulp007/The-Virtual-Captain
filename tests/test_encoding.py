@@ -46,7 +46,9 @@ def test_aerial_label_and_polar_shot():
         wagon_distance=[1.05, 0.2, 2.0, 0.0001],
     )
     out = enc.add_labels(df.lazy()).collect()
-    assert out["aerial"].to_list() == [True, True, True, False]
+    assert out["outcome"].to_list() == [enc.SIX, enc.IN_PLAY, enc.IN_PLAY, enc.IN_PLAY]
+    # caught and dropped balls are aerial; sixes are their own outcome
+    assert out["aerial"].to_list()[1:] == [True, True, False]
     assert out["theta"][0] == math.pi
     assert out["dist"].to_list() == [1.05, 0.2, enc.D_MAX, enc.D_MIN]
 

@@ -180,6 +180,7 @@ def calibration(model: ShotModel, frame: pl.DataFrame) -> pl.DataFrame:
         return [
             (pl.col(o) == enc.IN_PLAY).mean().alias(f"{prefix}in_play"),
             (pl.col(o) == enc.FIELD_FREE_OUT).mean().alias(f"{prefix}bowled_lbw"),
+            (pl.col(o) == enc.SIX).mean().alias(f"{prefix}six"),
             pl.col(a).filter(play).mean().alias(f"{prefix}aerial"),
             (pl.col(t).filter(play) >= np.pi).mean().alias(f"{prefix}off_side"),
             pl.col(d).filter(play).median().alias(f"{prefix}median_dist"),
