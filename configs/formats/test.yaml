@@ -7,3 +7,7 @@ new_ball_every: 480
 phases:
   - {name: new_ball, until: 120}
   - {name: old_ball, until: null}
+
+fielding:
+  max_leg_behind_square: 2
+  max_outside_ring: null

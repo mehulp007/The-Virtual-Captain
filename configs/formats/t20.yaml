@@ -16,3 +16,8 @@ variants:
       - {name: powerplay, until: 25}
       - {name: middle, until: 75}
       - {name: death, until: null}
+
+# Fielding restrictions apply to the 9 fielders other than the bowler and keeper.
+fielding:
+  max_leg_behind_square: 2
+  max_outside_ring: {powerplay: 2, middle: 5, death: 5}

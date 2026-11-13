@@ -6,3 +6,7 @@ phases:
   - {name: powerplay, until: 60}
   - {name: middle, until: 240}
   - {name: death, until: null}
+
+fielding:
+  max_leg_behind_square: 2
+  max_outside_ring: {powerplay: 2, middle: 4, death: 5}
