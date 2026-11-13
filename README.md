@@ -43,8 +43,10 @@ Given the batter, the bowler, line and length, bowler type, format, phase, match
 venue, it outputs:
 
 - **Contact:** the chance the ball is left or missed, the chance it bowls / traps lbw / stumps the
-  batter (dismissals no field can prevent), and the chance it is put into play.
-- **The shot:** for a ball put into play, a joint distribution over **direction**, **distance** and
+  batter (dismissals no field can prevent), the chance it is hit for six (also decided by the
+  batter, not the field), and the chance it is put into play.
+- **The shot:** for any other ball put into play, a joint distribution over **direction**,
+  **distance** and
   whether it went **in the air**. This is a mixture density network with 16 components; each
   component has its own direction (von Mises), its own chance of being aerial, and separate
   distance distributions (log-normal) for ground and aerial balls. Edges flying behind the wicket,
@@ -60,12 +62,12 @@ Average negative log-likelihood on 2025–26 (lower is better):
 
 | | Shot model | Per-batter histogram | Everyone pooled |
 |---|---:|---:|---:|
-| Contact outcome, per ball (394k balls) | **0.421** | 0.468 | 0.483 |
-| Shot, per ball in play (333k shots) | **1.222** | 1.756 | 1.793 |
+| Contact outcome, per ball (395k balls) | **0.563** | 0.630 | 0.657 |
+| Shot, per ball in play (317k shots) | **1.175** | 1.658 | 1.687 |
 
 The per-batter histogram is a strong, honest baseline: each batter's own shot chart, smoothed
 towards the population with a strength picked on validation data. The model assigns real shots
-about 1.7× the likelihood the histogram does.
+about 1.6× the likelihood the histogram does.
 
 ![Real vs simulated shot directions for held-out seasons](reports/figures/shot_model_holdout.png)
 
@@ -75,18 +77,19 @@ much identity adds on unseen seasons:
 
 | Batter's balls in training | 300–800 | 800–2,000 | 2,000–6,000 | 6,000+ |
 |---|---:|---:|---:|---:|
-| Shot NLL improvement from knowing the batter | 0.002 | 0.022 | 0.035 | 0.041 |
+| Shot NLL improvement from knowing the batter | −0.001 | 0.016 | 0.029 | 0.038 |
 
-It grows with data and never makes things worse, which is what the pooling should do.
+It grows with the amount of data, and for batters with little history it falls back to roughly
+the average batter rather than overfitting, which is what the pooling should do.
 
 Simulated rates line up with reality by format and phase (full table in
 [`reports/shot_model_calibration.csv`](reports/shot_model_calibration.csv)):
 
-| Held-out 2025–26 | Real in play | Sim | Real aerial | Sim | Real off side | Sim |
-|---|---:|---:|---:|---:|---:|---:|
-| Test, new ball | 71.7% | 71.2% | 2.8% | 3.0% | 60.0% | 60.3% |
-| ODI, middle | 90.0% | 88.2% | 3.8% | 4.1% | 55.9% | 57.8% |
-| T20, death | 84.2% | 82.8% | 20.1% | 19.3% | 48.0% | 46.4% |
+| Held-out 2025–26 | Real in play | Sim | Real six | Sim | Real aerial | Sim | Real off side | Sim |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Test, new ball | 71.3% | 70.7% | 0.4% | 0.6% | 2.2% | 2.4% | 60.2% | 60.1% |
+| ODI, middle | 88.4% | 86.5% | 1.6% | 1.9% | 2.1% | 2.3% | 56.5% | 57.6% |
+| T20, death | 74.8% | 73.4% | 9.4% | 9.2% | 10.1% | 9.6% | 50.8% | 50.2% |
 
 ![Real vs simulated distances](reports/figures/shot_model_distance.png)
 
@@ -97,12 +100,93 @@ Simulated rates line up with reality by format and phase (full table in
   boundary is where boundary riders stop the ball, and almost nothing is recorded just inside the
   rope. The model smooths over that gap. Distances for fielded balls are therefore a lower bound
   on how far the shot would have travelled.
-- **"In the air" is only observed when it matters.** A ball is labelled aerial if it went for
-  six, was caught or was dropped. Lofted shots that landed safely in a gap look like ground balls.
-- **Batting is drifting.** Limited-overs batters put 86.5–87% of balls into play in 2025–26
-  against 85% in 2024, so the model under-predicts contact by up to 3 points on those seasons. On
+- **"In the air" is only observed when it matters.** A ball is labelled aerial if it was caught
+  or dropped. Lofted shots that landed safely in a gap look like ground balls.
+- **Batting is drifting.** Limited-overs batters put more balls into play in 2025–26 than in
+  any training year, so the model under-predicts contact by up to 3 points on those seasons. On
   validation matches from the training years it is within half a point.
 - Men's cricket only.
+
+## Fielding simulator
+
+The simulator replays deliveries against a field and works out what each one is worth. It runs
+about 6 million deliveries a second on a 16-core laptop CPU (compiled with Numba).
+
+**Fielding restrictions** ([`src/virtual_captain/field/rules.py`](src/virtual_captain/field/rules.py)),
+for the nine fielders other than bowler and keeper:
+
+- no more than two behind square on the leg side, in every format
+- at most 2 outside the 30-yard ring in the T20 powerplay and 5 after it; in ODIs 2 / 4 / 5 across
+  overs 1-10, 11-40 and 41-50; no limit in Tests
+- inside the boundary, off the pitch and not on top of the striker
+
+Any field can be repaired into a legal one: the fewest fielders are moved, by the smallest
+distance, until every rule holds. 32 named positions and 16 conventional fields (by format,
+phase and pace or spin) are defined in [`src/virtual_captain/field`](src/virtual_captain/field).
+
+**Physics, ball by ball.** The shot model decides whether the ball is put into play and, if so,
+its direction, distance and whether it is in the air. Then:
+
+- **Along the ground** the ball slows at a constant rate. Each fielder needs a reaction time,
+  then runs at a fixed speed and can dive a little way; the first fielder who can get to the
+  ball's line before it does stops it.
+- **In the air** the hang time grows with the distance hit. A fielder who reaches the landing
+  spot in time holds the catch, less reliably the less time they had; otherwise it lands, rolls
+  on and has to be chased.
+- **Runs** depend on the time until the ball is back at the stumps. Each run is taken with a
+  probability that rises with the time to spare, and every run after the first needs extra time
+  for the turn. How readily batters run differs by format and phase.
+- Sixes, bowled / lbw / stumped and balls left alone come straight from the shot model.
+
+### Calibrating it
+
+Nobody recorded where the fielders stood, so the simulator can't be checked against the real
+fields. Instead each historical delivery is replayed against a stand-in for the field the captain
+would have set: the conventional field for that format, phase and type of bowling, with its
+boundary riders moved to where that batter's hits reach the deep (learned from training seasons
+only).
+
+![Conventional field vs one adapted to Klaasen](reports/figures/field_example.png)
+
+The uncertain parameters are then fitted so simulated dots, singles, twos and threes, fours,
+sixes, catches and runs by direction match reality across all 16 format / phase / bowling groups.
+The fit uses 480k deliveries before 2025, a TPE search (600 trials) and a CMA-ES refinement (400
+trials), and takes about 3 minutes. The fitted values, in [`configs/sim.yaml`](configs/sim.yaml),
+are physically sensible:
+
+| | Fitted |
+|---|---|
+| Ground ball deceleration | 4.4 m/s² |
+| Fielder speed / effective reaction time | 6.0 m/s / 0.94 s |
+| Diving reach, ground / catch | 1.4 m / 1.0 m |
+| Straightforward catches held | 90% |
+| Time per run: T20 / ODI / Test | 2.5 s / 3.0 s / 3.7 s |
+| Extra time for each run after the first | 2.0 s |
+
+### How close it gets
+
+On the held-out 2025–26 seasons, averaged over the 16 groups and weighted by balls:
+
+| | Runs per ball | Dots | Singles | Twos & threes | Fours | Sixes | Caught |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Mean absolute error | **6.4%** | **9.0%** | 12.3% | 26.5% | 15.8% | 22.7% | 20.6% |
+
+![Simulator vs reality](reports/figures/sim_calibration.png)
+
+Per-group figures are in [`reports/sim_calibration.csv`](reports/sim_calibration.csv).
+
+### Known limitations
+
+- **The real fields are unknown.** Calibration assumes captains set conventional fields with
+  their boundary riders where the batter hits; any difference between that and what they really
+  did is absorbed into the fitted parameters, which are effective rather than literal (the 0.94 s
+  reaction time also covers anticipation and the first stride).
+- **Catches are under-predicted in T20 and at the end of ODIs**, by 20-40%, because lofted shots
+  that fell safely aren't labelled as aerial in the data.
+- **Twos and threes are the least accurate outcome** (about ±25%), though they are rare.
+- **Sixes in Tests drift.** Sixes are within 6% on training seasons but over-predicted for Tests
+  in 2025–26, where they are rare (0.4-1% of balls).
+- Run-outs, overthrows, extras and ground-specific boundary sizes are not modelled.
 
 ## The deliveries table
 
@@ -163,12 +247,14 @@ uv sync --extra cu128
 uv sync --extra cpu
 ```
 
-Then download the data, build the table, train the shot model and draw the figures:
+Then download the data, build the table, train the shot model, calibrate the simulator and
+draw the figures:
 
 ```bash
 uv run python scripts/download_data.py
 uv run python scripts/build_dataset.py
 uv run python scripts/train_shot_model.py
+uv run python scripts/calibrate.py
 uv run python scripts/make_figures.py
 ```
 
@@ -190,15 +276,17 @@ uv run pre-commit install   # optional, lint on every commit
 ## Project layout
 
 ```
-configs/formats/        phase definitions per format
+configs/formats/        phases and fielding restrictions per format
+configs/sim.yaml        fitted simulator parameters
 scripts/                download, build, training and figure scripts
 src/virtual_captain/
   data/                 loaders, match state and phase features, wagon-wheel coordinates
-  field/                field geometry (ring, boundary, frames)
+  field/                geometry, named positions, conventional fields, fielding rules
   models/               bowler and venue context, feature encoding, shot model, baselines
+  sim/                  fielding physics, simulator and its calibration
   viz/                  field drawing, wagon wheels and scoring-zone roses
 notebooks/              exploration
-reports/                coverage report, model metrics and figures
+reports/                coverage report, model and simulator metrics, figures
 tests/
 ```
 
