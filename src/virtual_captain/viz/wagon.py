@@ -60,26 +60,32 @@ def run_legend(fig: plt.Figure, **kwargs) -> None:
     fig.legend(handles=handles, ncol=3, fontsize=9, **kwargs)
 
 
+def sector_shares(angle_deg, weights=None, sector_deg: float = 15) -> np.ndarray:
+    """Share of the total (count, or weights such as runs) falling in each angle sector."""
+    n = int(round(360 / sector_deg))
+    idx = (np.asarray(angle_deg) // sector_deg).astype(int) % n
+    totals = np.bincount(idx, weights=weights, minlength=n)
+    return totals / max(totals.sum(), 1)
+
+
 def run_shares(shots: pl.DataFrame, sector_deg: float = 15) -> np.ndarray:
     """Share of runs off the bat scored in each wagon-angle sector."""
-    n = int(round(360 / sector_deg))
-    idx = (shots["wagon_angle"].to_numpy() // sector_deg).astype(int) % n
-    runs = np.bincount(idx, weights=shots["runs_off_bat"].to_numpy(), minlength=n)
-    return runs / max(runs.sum(), 1)
+    return sector_shares(
+        shots["wagon_angle"].to_numpy(), shots["runs_off_bat"].to_numpy(), sector_deg
+    )
 
 
-def plot_run_rose(
+def plot_rose(
     ax: plt.Axes,
-    shots: pl.DataFrame,
+    shares: np.ndarray,
     max_share: float,
-    sector_deg: float = 15,
     colour: str = style.SERIES[0],
     title: str | None = None,
-) -> np.ndarray:
-    """Scoring zones as a rose: wedge area is proportional to the share of runs in that
-    direction. Pass the same max_share to every panel so they share one scale."""
+) -> plt.Axes:
+    """Rose of per-sector shares; wedge area is proportional to the share. Pass the same
+    max_share to every panel so they share one scale."""
     draw_field(ax)
-    shares = run_shares(shots, sector_deg)
+    sector_deg = 360 / len(shares)
     for i, share in enumerate(shares):
         r = BOUNDARY_RADIUS * 0.95 * np.sqrt(share / max_share)
         t = np.deg2rad(np.linspace(i * sector_deg, (i + 1) * sector_deg, 10))
@@ -101,4 +107,18 @@ def plot_run_rose(
     )
     if title:
         ax.set_title(title, fontsize=9, pad=2)
+    return ax
+
+
+def plot_run_rose(
+    ax: plt.Axes,
+    shots: pl.DataFrame,
+    max_share: float,
+    sector_deg: float = 15,
+    colour: str = style.SERIES[0],
+    title: str | None = None,
+) -> np.ndarray:
+    """Scoring zones: share of a batter's runs in each direction."""
+    shares = run_shares(shots, sector_deg)
+    plot_rose(ax, shares, max_share, colour, title)
     return shares

@@ -228,7 +228,7 @@ def main(argv=None) -> int:
         cal = calibration(model, frame)
 
     REPORTS_DIR.mkdir(exist_ok=True)
-    (REPORTS_DIR / "shot_model_metrics.json").write_text(json.dumps(metrics, indent=2))
+    (REPORTS_DIR / "shot_model_metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     cal.write_csv(REPORTS_DIR / "shot_model_calibration.csv", float_precision=3)
     print(json.dumps(metrics, indent=2))
     with pl.Config(tbl_rows=-1, tbl_cols=-1, float_precision=3, tbl_hide_dataframe_shape=True):

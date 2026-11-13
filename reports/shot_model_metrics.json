@@ -1,0 +1,14 @@
+{
+  "test_balls": 394622,
+  "test_shots": 333224,
+  "contact_nll": {
+    "shot_model": 0.42136964201927185,
+    "batter_histogram": 0.4679522162030654,
+    "population": 0.48316938592384273
+  },
+  "shot_nll": {
+    "shot_model": 1.2219165563583374,
+    "batter_histogram": 1.7555207615815496,
+    "population": 1.7926554374248203
+  }
+}
