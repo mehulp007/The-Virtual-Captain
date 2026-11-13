@@ -17,7 +17,7 @@ import numpy as np  # noqa: E402
 import polars as pl  # noqa: E402
 
 from virtual_captain.models import encoding as enc  # noqa: E402
-from virtual_captain.paths import DATA_DIR, FIGURES_DIR, PROCESSED_DIR  # noqa: E402
+from virtual_captain.paths import DATA_DIR, FIGURES_DIR, PROCESSED_DIR, REPORTS_DIR  # noqa: E402
 from virtual_captain.viz import style  # noqa: E402
 from virtual_captain.viz.wagon import (  # noqa: E402
     plot_rose,
@@ -211,6 +211,93 @@ def shot_model_distance(test: pl.DataFrame, model, out: Path) -> None:
     plt.close(fig)
 
 
+def sim_calibration_plot(table: pl.DataFrame, out: Path) -> None:
+    """Real vs simulated rates on held-out seasons, one point per format/phase/bowling."""
+    panels = [
+        ("runs_per_ball", "runs per ball"),
+        ("dot", "dot balls"),
+        ("four", "fours"),
+        ("caught", "caught"),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(13, 3.6))
+    for ax, (col, label) in zip(axes, panels, strict=True):
+        real, sim = table[f"real_{col}"].to_numpy(), table[f"sim_{col}"].to_numpy()
+        top = max(real.max(), sim.max()) * 1.12
+        line = np.array([0, top])
+        ax.plot(line, line, color=style.AXIS, lw=1)
+        for f in (0.9, 1.1):
+            ax.plot(line, line * f, color=style.GRID, lw=1, ls=(0, (3, 3)))
+        for fmt in ("TEST", "ODI", "T20"):
+            m = (table["format"] == fmt).to_numpy()
+            ax.scatter(
+                real[m],
+                sim[m],
+                s=36,
+                color=style.FORMAT_COLOURS[fmt],
+                label=FORMAT_NAMES[fmt],
+                edgecolor=style.SURFACE,
+                linewidth=1,
+                zorder=3,
+            )
+        ax.set_xlim(0, top)
+        ax.set_ylim(0, top)
+        ax.set_aspect("equal")
+        ax.set_title(label, loc="left")
+        ax.set_xlabel("real")
+    axes[0].set_ylabel("simulated")
+    axes[0].legend(loc="upper left", fontsize=8)
+    fig.suptitle(
+        "Simulator vs reality on held-out 2025-26 seasons (dashed lines: ±10%)",
+        fontsize=11,
+        x=0.02,
+        ha="left",
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def _draw_fielders(ax, field: np.ndarray, colour: str) -> None:
+    from virtual_captain.field.positions import nearest_name
+
+    for x, y in field[:9]:
+        ax.scatter(x, y, s=70, color=colour, edgecolor=style.SURFACE, linewidth=1.5, zorder=4)
+        name = nearest_name(np.array([x, y])).replace("_", " ")
+        ax.text(x, y - 5.5, name, fontsize=6.5, ha="center", va="top", color=style.INK_SECONDARY)
+    for x, y in field[9:]:
+        ax.scatter(x, y, s=40, color=style.INK_MUTED, edgecolor=style.SURFACE, zorder=4)
+
+
+def field_example(df: pl.LazyFrame, out: Path, batter: str = "H Klaasen") -> None:
+    """The conventional T20 death field next to the one adapted to a batter's deep hitting."""
+    from virtual_captain.sim.calibrate import PROFILE_SECTORS, adapted_field, deep_profiles
+
+    rows = (
+        df.filter((pl.col("striker") == batter) & (pl.col("format") == "T20"))
+        .pipe(enc.add_labels)
+        .collect()
+    )
+    weights = next(iter(deep_profiles(rows).values()))
+    key = ("T20", "death", "pace")
+    fig, axes = plt.subplots(1, 2, figsize=(9.5, 5.2))
+    titles = ["Conventional T20 death field", f"Boundary riders moved to where {batter} hits"]
+    for ax, w, title in zip(axes, [None, weights], titles, strict=True):
+        shares = weights / weights.sum()
+        plot_rose(ax, shares, shares.max() * 1.6, colour=style.GRID)
+        _draw_fielders(ax, adapted_field(key, w), style.SERIES[0] if w is None else style.SERIES[1])
+        ax.set_title(title, fontsize=10)
+    fig.suptitle(
+        f"Grey wedges: where {batter}'s balls reach the deep in T20s "
+        f"({PROFILE_SECTORS} sectors, right-hander's view)",
+        fontsize=9,
+        color=style.INK_SECONDARY,
+        y=0.04,
+    )
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.savefig(out)
+    plt.close(fig)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, default=PROCESSED_DIR / "deliveries.parquet")
@@ -240,6 +327,11 @@ def main(argv: list[str] | None = None) -> int:
         shot_model_distance(test, model, args.out / "shot_model_distance.png")
     else:
         print(f"no shot model at {SHOT_MODEL}, skipping model figures")
+
+    calibration = REPORTS_DIR / "sim_calibration.csv"
+    if calibration.exists():
+        sim_calibration_plot(pl.read_csv(calibration), args.out / "sim_calibration.png")
+    field_example(df, args.out / "field_example.png")
     print(f"figures written to {args.out}")
     return 0
 
