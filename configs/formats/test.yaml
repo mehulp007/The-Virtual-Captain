@@ -1,0 +1,9 @@
+name: TEST
+scheduled_balls: null
+
+# Test phases follow the age of the ball rather than the innings clock.
+# A new ball is assumed to be taken as soon as it is available, every 80 overs.
+new_ball_every: 480
+phases:
+  - {name: new_ball, until: 120}
+  - {name: old_ball, until: null}

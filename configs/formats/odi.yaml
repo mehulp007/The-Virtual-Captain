@@ -1,0 +1,8 @@
+name: ODI
+scheduled_balls: 300
+
+# Same boundaries as the ODI fielding-restriction powerplays (overs 1-10, 11-40, 41-50).
+phases:
+  - {name: powerplay, until: 60}
+  - {name: middle, until: 240}
+  - {name: death, until: null}
