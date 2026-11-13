@@ -1,6 +1,6 @@
 # The Virtual Captain
 
-[![CI](https://github.com/mehulp007/the-virtual-captain/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulp007/the-virtual-captain/actions/workflows/ci.yml)
+[![CI](https://github.com/mehulp007/The-Virtual-Captain/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulp007/The-Virtual-Captain/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
