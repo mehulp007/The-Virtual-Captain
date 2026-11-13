@@ -17,6 +17,9 @@ dependencies = [
     "kaggle>=1.7",
     "matplotlib>=3.8",
     "mlflow>=2.14",
+    "numba>=0.60",
+    "optuna>=4.0",
+    "cmaes>=0.11",
 ]
 
 [project.optional-dependencies]
