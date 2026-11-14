@@ -130,9 +130,13 @@ its direction, distance and whether it is in the air. Then:
 - **Along the ground** the ball slows at a constant rate. Each fielder needs a reaction time,
   then runs at a fixed speed and can dive a little way; the first fielder who can get to the
   ball's line before it does stops it.
-- **In the air** the hang time grows with the distance hit. A fielder who reaches the landing
-  spot in time holds the catch, less reliably the less time they had; otherwise it lands, rolls
-  on and has to be chased.
+- **In the air** the hang time grows with the square root of the distance hit, as for a
+  projectile. A fielder who reaches the landing spot in time holds the catch, less reliably the
+  less time they had; otherwise it lands, rolls on and has to be chased.
+- **Edges** (anything in the air that finishes behind the bat within 30 m) are too quick to
+  move for: only a fielder already standing near where the edge lands can take it. The keeper,
+  slips, gully and leg slip stand where Cricinfo's wagon wheel plots the catches taken there,
+  since it draws edges closer to the bat than they really carry.
 - **Runs** depend on the time until the ball is back at the stumps. Each run is taken with a
   probability that rises with the time to spare, and every run after the first needs extra time
   for the turn. How readily batters run differs by format and phase.
@@ -149,19 +153,19 @@ only).
 ![Conventional field vs one adapted to Klaasen](reports/figures/field_example.png)
 
 The uncertain parameters are then fitted so simulated dots, singles, twos and threes, fours,
-sixes, catches and runs by direction match reality across all 16 format / phase / bowling groups.
-The fit uses 480k deliveries before 2025, a TPE search (600 trials) and a CMA-ES refinement (400
-trials), and takes about 3 minutes. The fitted values, in [`configs/sim.yaml`](configs/sim.yaml),
-are physically sensible:
+sixes, catches (behind the bat, close in front of it and in the deep) and runs by direction match
+reality across all 16 format / phase / bowling groups. The fit uses 480k deliveries before 2025,
+a TPE search (1,500 trials) and a CMA-ES refinement (800 trials), and takes about 8 minutes.
+The fitted values, in [`configs/sim.yaml`](configs/sim.yaml), are effective rather than literal:
 
 | | Fitted |
 |---|---|
-| Ground ball deceleration | 4.4 m/s² |
-| Fielder speed / effective reaction time | 6.0 m/s / 0.94 s |
-| Diving reach, ground / catch | 1.4 m / 1.0 m |
-| Straightforward catches held | 90% |
-| Time per run: T20 / ODI / Test | 2.5 s / 3.0 s / 3.7 s |
-| Extra time for each run after the first | 2.0 s |
+| Ground ball deceleration | 8.7 m/s² |
+| Fielder speed / effective reaction time | 5.9 m/s / 0.79 s |
+| Diving reach, ground / catch | 2.0 m / 1.1 m |
+| Straightforward catches held | 95% |
+| Time per run: T20 / ODI / Test | 3.3 s / 4.2 s / 3.7 s |
+| Extra time for each run after the first | 1.5 s |
 
 ### How close it gets
 
@@ -169,7 +173,10 @@ On the held-out 2025–26 seasons, averaged over the 16 groups and weighted by b
 
 | | Runs per ball | Dots | Singles | Twos & threes | Fours | Sixes | Caught |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Mean absolute error | **6.4%** | **9.0%** | 12.3% | 26.5% | 15.8% | 22.7% | 20.6% |
+| Mean absolute error | **8.2%** | 11.3% | 11.9% | 18.9% | 11.4% | 21.4% | 14.8% |
+
+Where catches are taken is less accurate than how many: the error is 47% for catches behind the
+bat, 34% close in front of it and 28% in the deep.
 
 ![Simulator vs reality](reports/figures/sim_calibration.png)
 
@@ -179,14 +186,113 @@ Per-group figures are in [`reports/sim_calibration.csv`](reports/sim_calibration
 
 - **The real fields are unknown.** Calibration assumes captains set conventional fields with
   their boundary riders where the batter hits; any difference between that and what they really
-  did is absorbed into the fitted parameters, which are effective rather than literal (the 0.94 s
+  did is absorbed into the fitted parameters, which are effective rather than literal (the 0.79 s
   reaction time also covers anticipation and the first stride).
-- **Catches are under-predicted in T20 and at the end of ODIs**, by 20-40%, because lofted shots
-  that fell safely aren't labelled as aerial in the data.
-- **Twos and threes are the least accurate outcome** (about ±25%), though they are rare.
+- **Where catches go is the weakest part.** Edges are plotted with several metres of scatter and
+  lofted shots that fell safely aren't labelled as aerial in the data, so the split of catches
+  between the cordon, close fielders and the deep is only roughly right.
+- **Twos and threes are among the least accurate outcomes** (about ±19%), though they are rare.
 - **Sixes in Tests drift.** Sixes are within 6% on training seasons but over-predicted for Tests
   in 2025–26, where they are rare (0.4-1% of balls).
 - Run-outs, overthrows, extras and ground-specific boundary sizes are not modelled.
+
+## Setting the field
+
+For any scenario (a batter, or all batters, in a format, phase and type of bowling) three
+fields are compared on the same simulated deliveries:
+
+- **Conventional:** the textbook field for the situation.
+- **Analyst:** what someone with the batter's wagon wheel and no model would do. Same number of
+  boundary riders as the conventional field, placed on the batter's busiest zones.
+- **Optimised:** a CMA-ES search over all nine positions (70 generations of 16 fields, started
+  from the analyst's field). Every candidate is repaired into a legal field before it is
+  scored, so the search can never break the fielding restrictions.
+
+Fields are judged on **runs conceded minus wickets taken, each wicket valued at the runs it
+costs the batting side** at that stage. Wicket values come from the data: the drop in expected
+runs to the end of the innings when one more wicket is down (first innings of limited-overs
+matches, innings one to three of Tests, seasons before 2025):
+
+| Runs a wicket is worth | Powerplay | Middle | Death | | New ball | Old ball |
+|---|---:|---:|---:|---|---:|---:|
+| T20 | 12.9 | 8.6 | 3.1 | Test | 38.0 | 37.2 |
+| ODI | 27.7 | 19.9 | 7.6 | | | |
+
+Each field is searched on 30,000 simulated deliveries and judged on a separate 60,000, so an
+optimiser that overfits its own sample gains nothing. All three fields face the same deliveries,
+so their differences come with tight 95% intervals. Batters who played in 2025–26 are also judged
+on their real contexts from those seasons, which the search never saw.
+
+### Results
+
+76 scenarios: the 16 format / phase / bowling groups with all batters pooled, plus 20 leading
+batters in up to three contexts each where they have at least 400 tracked balls. Averages over
+the 60 batter scenarios:
+
+| | Conventional | Analyst | Optimised |
+|---|---:|---:|---:|
+| ODI runs per ball | 0.96 | 0.90 | **0.83** |
+| T20 runs per ball | 1.36 | 1.31 | **1.23** |
+| Test runs per ball | 0.58 | 0.52 | **0.49** |
+| Test wickets per 100 balls | 1.47 | 1.42 | **1.84** |
+
+- The optimised field beats the analyst's in **all 60 batter scenarios** (every 95% interval
+  excludes zero) and in **all 40** checks on held-out 2025–26 deliveries.
+- The analyst's field beats the conventional one in 48 of 60, and in 38 of 40 held-out checks:
+  setting the field to the batter's wagon wheel already helps.
+- The 95% intervals compare fields on the same deliveries. Drawing a fresh batch of simulated
+  deliveries moves every field's cost up or down together by about 0.02 per ball, so read the
+  averages above to about that precision. Every run is seeded and reproduces exactly.
+
+![Fields for three batters](reports/figures/optimised_fields.png)
+
+![Optimised vs analyst, every scenario](reports/figures/optimiser_gains.png)
+
+Full results: [`reports/optimizer_results.csv`](reports/optimizer_results.csv) and every field
+in [`reports/optimized_fields.json`](reports/optimized_fields.json).
+
+### What 5 metres is worth
+
+Starting from the analyst's field, every fielder is moved 5 m in, out and to either side, one
+at a time:
+
+> **Against David Warner in the T20 powerplay, moving backward point 5 m deeper saves
+> 0.026 ± 0.003 runs per ball, two and a half runs every 100 balls.** Against Suryakumar Yadav
+> facing spin in the middle overs, moving mid-wicket 5 m straighter saves 0.025 ± 0.003.
+
+The best move for every batter scenario is in [`reports/best_moves.csv`](reports/best_moves.csv).
+The map below shows, for Suryakumar against spin, how much one more fielder would save at each
+point of the ground with the other eight left where the optimiser put them.
+
+![Where a fielder is worth most](reports/figures/value_map.png)
+
+### Does it rediscover what captains know?
+
+Nothing about cricket tactics was given to the search. Checked on the 16 pooled groups:
+
+| Check | Result |
+|---|---|
+| Uses every boundary rider the rules allow in limited overs | ✅ all 12 limited-overs groups |
+| Slips with the new ball in Tests | ⚠️ partly: keeps one slip where convention sets three |
+| Close catchers against spin in Tests | ❌ none |
+
+The Test results are not trustworthy yet. With a wicket worth 38 runs, a captain attacks, but
+the optimised Test fields are more defensive than convention (3 to 5 boundary riders). The cause
+is in the simulator. Cricinfo's wagon wheel scatters edges by several metres, so the simulator
+can't tell first, second and third slip apart: one slip covers the cordon and extra slips add
+little. Close catches in front of the bat are similarly under-counted. Limited-overs fields,
+where the value is mostly in runs, rest on firmer ground.
+
+### Known limitations
+
+- **The gains are measured inside the simulator.** The comparisons are fair to each field, but
+  their size depends on the simulator's assumptions, so the ranking is more reliable than the
+  exact number of runs saved.
+- **Test fields undervalue catchers** (see above).
+- **One field per scenario.** The field is fixed for all the deliveries in a scenario; it doesn't
+  change ball by ball, react to the score or anticipate a batter changing their game.
+- The optimiser sometimes puts two fielders close together, which the simulator rewards but a
+  captain might not.
 
 ## The deliveries table
 
@@ -255,12 +361,14 @@ uv run python scripts/download_data.py
 uv run python scripts/build_dataset.py
 uv run python scripts/train_shot_model.py
 uv run python scripts/calibrate.py
+uv run python scripts/optimize_fields.py
 uv run python scripts/make_figures.py
 ```
 
 Training takes about 5 minutes on an RTX 4060 (30 epochs of ~9 s each, plus evaluation) and logs
 to a local MLflow database in `mlruns/` (`uv run mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db`
 to browse runs). The checkpoint is written to `data/models/shot_model.pt`.
+Calibrating the simulator takes about 8 minutes and optimising all 76 field scenarios about 16.
 
 The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
 `--source kaggle` or `--source cricsheet` fetches one source only.
@@ -284,9 +392,10 @@ src/virtual_captain/
   field/                geometry, named positions, conventional fields, fielding rules
   models/               bowler and venue context, feature encoding, shot model, baselines
   sim/                  fielding physics, simulator and its calibration
+  optim/                wicket values, analyst fields, CMA-ES search, sensitivity
   viz/                  field drawing, wagon wheels and scoring-zone roses
 notebooks/              exploration
-reports/                coverage report, model and simulator metrics, figures
+reports/                coverage, model, simulator and optimiser results, figures
 tests/
 ```
 
