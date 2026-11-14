@@ -212,9 +212,6 @@ class CaptainBatterGame(AECEnv):
         self._act_spaces = {"captain": captain_act, "batter": batter_act}
         self.field = None
 
-    def render(self):
-        return None
-
     def observation_space(self, agent):
         return self._obs_spaces[agent]
 
