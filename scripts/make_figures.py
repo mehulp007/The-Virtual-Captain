@@ -729,6 +729,143 @@ def selfplay_matrix_figure(matrix: pl.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+# Case studies, field shapes, pipeline ---------------------------------------------------
+def case_studies_figure(cases: dict, out: Path) -> None:
+    """Each famous innings: the batter's real shots that stayed in the ground, the captain's
+    field (filled) and the conventional one (hollow) for the situation it spent most time in."""
+    from virtual_captain.data.coords import wagon_to_xy
+
+    groups = [
+        ("caught", lambda r: r < 0, style.INK, "x", 18),
+        ("no run", lambda r: r == 0, style.AXIS, "o", 6),
+        ("1 to 3", lambda r: (r >= 1) & (r <= 3), style.RUN_COLOURS["1-3"], "o", 9),
+        ("four", lambda r: r >= 4, style.RUN_COLOURS["4"], "o", 12),
+    ]
+    fig, axes = plt.subplots(1, len(cases), figsize=(5.2 * len(cases), 6.4))
+    for ax, case in zip(np.atleast_1d(axes), cases.values(), strict=True):
+        draw_field(ax)
+        shots = np.array(case["shots"], dtype=float)
+        x, y = wagon_to_xy(np.degrees(shots[:, 0]), np.minimum(shots[:, 1], 1.0))
+        runs = shots[:, 2]
+        for label, pick, colour, marker, size in groups:
+            m = pick(runs)
+            ax.scatter(x[m], y[m], s=size, color=colour, marker=marker, alpha=0.75, lw=1,
+                       zorder=2, label=label)  # fmt: skip
+        conv = np.array(case["conventional"])
+        ax.scatter(conv[:, 0], conv[:, 1], s=70, facecolor="none", edgecolor=style.INK_SECONDARY,
+                   lw=1.4, zorder=3, label="conventional field")  # fmt: skip
+        cap = np.array(case["captain"])
+        ax.scatter(cap[:, 0], cap[:, 1], s=70, color=style.SERIES[1], edgecolor=style.SURFACE,
+                   lw=1.2, zorder=4, label="RL captain's field")  # fmt: skip
+        t = case["totals"]
+        c, v = t["RL captain"], t["Conventional field"]
+        ax.set_title(
+            f"{case['label']}\n{case['detail']}\n"
+            f"The same shots against the captain's fields: {c['expected_runs']:.0f} runs, "
+            f"{c['expected_dismissals']:.1f} out\nagainst conventional fields: "
+            f"{v['expected_runs']:.0f} runs, {v['expected_dismissals']:.1f} out "
+            f"(actual: {c['actual_runs']})",
+            fontsize=8.5,
+        )
+        ax.text(0, -68 * 1.12, f"fields shown: {case['situation']}", ha="center",
+                fontsize=7.5, color=style.INK_MUTED)  # fmt: skip
+    np.atleast_1d(axes)[0].legend(loc="upper left", fontsize=7, frameon=False,
+                                  bbox_to_anchor=(-0.05, 1.0))  # fmt: skip
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def field_shapes_figure(shapes: pl.DataFrame, out: Path) -> None:
+    """How many fielders the conventional field and the captain's put in four parts of the
+    ground, averaged over every batter context, by format and phase."""
+    order = [
+        ("T20", "powerplay"), ("T20", "middle"), ("T20", "death"), ("ODI", "powerplay"),
+        ("ODI", "middle"), ("ODI", "death"), ("TEST", "new_ball"), ("TEST", "old_ball"),
+    ]  # fmt: skip
+    names = [f"{FORMAT_NAMES[f]} {p.replace('_', ' ')}" for f, p in order]
+    measures = [
+        ("close", "close catchers\n(within 15 m of the bat)"),
+        ("deep", "outside the ring"),
+        ("leg_side", "on the leg side"),
+        ("behind_square", "behind square"),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(12, 3.9), sharey=True)
+    y = np.arange(len(order))[::-1]
+    for ax, (col, title) in zip(axes, measures, strict=True):
+        vals = {}
+        for setter in ("Conventional field", "RL captain"):
+            d = shapes.filter(pl.col("setter") == setter)
+            vals[setter] = np.array(
+                [d.filter((pl.col("format") == f) & (pl.col("phase") == p))[col][0]
+                 for f, p in order]
+            )  # fmt: skip
+        a, b = vals["Conventional field"], vals["RL captain"]
+        ax.hlines(y, np.minimum(a, b), np.maximum(a, b), color=style.GRID, lw=3, zorder=1)
+        ax.scatter(a, y, s=45, facecolor=style.SURFACE, edgecolor=style.INK_SECONDARY, lw=1.5,
+                   zorder=2, label="conventional")  # fmt: skip
+        ax.scatter(b, y, s=45, color=style.SERIES[1], zorder=3, label="RL captain")
+        ax.set_title(title, fontsize=9.5)
+        ax.set_xlim(-0.3, 6.3)
+        ax.xaxis.grid(True)
+        ax.set_axisbelow(True)
+    axes[0].set_yticks(y, names, fontsize=9)
+    axes[0].legend(fontsize=8, frameon=False, loc="lower right")
+    fig.suptitle("Fielders in each part of the ground, average over every batter", fontsize=10.5)
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def pipeline_figure(out: Path) -> None:
+    """The whole project on one page."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    boxes = {
+        "data": (0.0, 1.0, "Ball-by-ball data", "5.85M deliveries\n3.46M with a wagon-wheel point"),
+        "shot": (1.0, 1.0, "Shot model", "mixture density network:\nwhere each batter hits it"),
+        "sim": (2.0, 1.0, "Fielding simulator", "numba physics, fitted\nto real runs and catches"),
+        "value": (0.0, 0.0, "Wicket values", "runs a wicket costs,\nby format and state"),
+        "search": (1.0, 0.0, "CMA-ES search", "one field per batter\nand situation"),
+        "rl": (2.0, 0.0, "RL captain", "one PPO policy, field\nreset before every ball"),
+        "batter": (3.0, 0.0, "Adaptive batter", "self-play: the batter\naims at the gaps"),
+        "app": (3.0, 1.0, "App", "any batter, any situation,\nmove the fielders"),
+    }
+    arrows = [("data", "shot"), ("shot", "sim"), ("data", "value"), ("value", "search"),
+              ("sim", "search"), ("search", "rl"), ("sim", "rl"), ("rl", "batter"),
+              ("batter", "app"), ("sim", "app")]  # fmt: skip
+    w, h = 0.78, 0.58
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    colours = {"data": style.SERIES[0], "value": style.SERIES[0], "shot": style.SERIES[2],
+               "sim": style.SERIES[2], "search": style.SERIES[1], "rl": style.SERIES[1],
+               "batter": style.SERIES[1], "app": style.INK_SECONDARY}  # fmt: skip
+    for k, (x, y, title, sub) in boxes.items():
+        ax.add_patch(FancyBboxPatch((x - w / 2, y - h / 2), w, h, boxstyle="round,pad=0.02",
+                                    fc=style.SURFACE, ec=colours[k], lw=2))  # fmt: skip
+        ax.text(x, y + 0.12, title, ha="center", va="center", fontsize=10.5, weight="bold",
+                color=style.INK)  # fmt: skip
+        ax.text(x, y - 0.1, sub, ha="center", va="center", fontsize=8, color=style.INK_SECONDARY)
+    for a, b in arrows:
+        (xa, ya), (xb, yb) = boxes[a][:2], boxes[b][:2]
+        dx, dy = xb - xa, yb - ya
+        if dx and dy:  # diagonal: from the bottom (or top) edge of one to the other's
+            start = (xa + 0.25 * np.sign(dx), ya + (h / 2 + 0.02) * np.sign(dy))
+            end = (xb - 0.25 * np.sign(dx), yb - (h / 2 + 0.02) * np.sign(dy))
+        else:
+            sx = (w / 2 + 0.02) * np.sign(dx)
+            sy = (h / 2 + 0.02) * np.sign(dy)
+            start, end = (xa + sx, ya + sy), (xb - sx, yb - sy)
+        ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=12, lw=1.2,
+                                     color=style.INK_MUTED))  # fmt: skip
+    ax.set_xlim(-0.5, 3.5)
+    ax.set_ylim(-0.4, 1.4)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, default=PROCESSED_DIR / "deliveries.parquet")
@@ -793,6 +930,12 @@ def main(argv: list[str] | None = None) -> int:
         selfplay_fields_figure(fields, args.out / "selfplay_fields.png")
         matrix = pl.read_csv(REPORTS_DIR / "selfplay_matrix.csv")
         selfplay_matrix_figure(matrix, args.out / "selfplay_matrix.png")
+    if (REPORTS_DIR / "case_studies.json").exists():
+        cases = json.loads((REPORTS_DIR / "case_studies.json").read_text())
+        case_studies_figure(cases, args.out / "case_studies.png")
+        shapes = pl.read_csv(REPORTS_DIR / "field_shapes.csv")
+        field_shapes_figure(shapes, args.out / "field_shapes.png")
+    pipeline_figure(args.out / "pipeline.png")
     print(f"figures written to {args.out}")
     return 0
 
