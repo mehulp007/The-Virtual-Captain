@@ -5,18 +5,125 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Open the app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://the-virtual-captain.streamlit.app)
 
-Field placement in cricket is mostly set on instinct. This project looks at it as a data problem:
-given where a batter tends to hit the ball, against a particular type of bowling, where should the
-nine fielders stand?
+Field placement in cricket is mostly set on instinct. This project treats it as a data problem:
+given where a batter tends to hit the ball, against a particular type of bowling and in a
+particular match situation, where should the nine fielders stand?
 
-It works from 5.85 million deliveries of Test, ODI and T20 cricket (2001–2026), 3.46 million
-of which carry a wagon-wheel point showing where the ball went.
-**[The app](https://the-virtual-captain.streamlit.app)** sets a field for any of 305 batters in
-any situation, and lets you move the fielders yourself.
+It learns where batters hit the ball from 5.85 million deliveries of Test, ODI and T20 cricket
+(2001–2026), tests every field in a fielding simulator fitted to real outcomes, and trains a
+reinforcement-learning captain that sets the field before every ball, then hardens it against
+batters who aim for the gaps.
+
+![The app in use](reports/figures/app_demo.gif)
+
+**Try it: [the-virtual-captain.streamlit.app](https://the-virtual-captain.streamlit.app)**. Pick a
+batter and a situation, see the captain's field, then move the fielders yourself. (It sleeps when
+nobody has used it for a while; the first visit then takes a minute.)
+
+## Headline findings
+
+- **Setting the field for the batter beats the textbook by a wide margin.** Averaged over 60
+  batter scenarios, an optimised field concedes 1.23 runs a ball in T20s against 1.36 for the
+  conventional field, 0.83 against 0.96 in ODIs and 0.49 against 0.58 in Tests. It beats a field
+  built from the batter's wagon wheel in all 60, and in all 40 checks on unseen 2025–26 seasons.
+  [More](#setting-the-field)
+- **One RL policy keeps up with a dedicated search for every batter.** Over whole overs it saves
+  0.017 runs a ball in T20s against switching to each striker's own searched field, and beats the
+  dedicated searches in 49 of 72 contexts on real 2025–26 deliveries. Textbook fields cost about
+  19 runs more over a T20 innings than any optimised one. [More](#the-rl-captain)
+- **Five metres matter.** Against David Warner in the T20 powerplay, moving backward point 5 m
+  deeper saves 0.026 ± 0.003 runs a ball. [More](#what-5-metres-is-worth)
+- **A batter who knows the field gains a lot, and most of it can't be fielded away.** A batter
+  trained to beat a field gains about 0.33 runs a ball in T20s, mostly by attacking harder.
+  Self-play cuts what such a batter gains by 6% in T20s and 17% in ODIs, and leaves the captain
+  harder to exploit than either fixed field in limited-overs cricket.
+  [More](#the-batter-fights-back)
+- **Replayed against the captain's fields, famous innings shrink.** Suryakumar Yadav's 117 off 55
+  would have brought about 108 runs, against 118 for the conventional field; Shubman Gill's 269,
+  from a season no model saw, about 229 against 276. [More](#three-famous-innings)
+- **Where it parts from the textbook:** no slip cordon, more fielders on the leg side and in the
+  deep. The leg-side shift rests on firm ground; the missing slips are partly a blind spot of the
+  simulator. [More](#where-it-parts-from-the-textbook)
+
+## How it works
+
+![From data to app](reports/figures/pipeline.png)
+
+1. **Data.** Ball-by-ball records joined with Cricinfo tracking: for 3.46 million deliveries, the
+   wagon-wheel point where the ball went, plus line, length, shot and bowler type.
+2. **Shot model.** A mixture density network predicts, for a given batter, bowler, delivery and
+   situation, whether the ball is put into play and where it goes: direction, distance and
+   whether it is in the air. [Shot model](#shot-model)
+3. **Fielding simulator.** Fielders react, run, dive and catch; batters take the runs the time
+   allows. Compiled with Numba, it runs about 6 million deliveries a second, and its uncertain
+   parameters are fitted so that a standard field reproduces real runs, boundaries and catches.
+   [Fielding simulator](#fielding-simulator)
+4. **What a wicket is worth.** Fields are judged on runs conceded minus wickets taken, each
+   wicket valued at the runs it costs the batting side at that point, measured from the data.
+5. **Search.** CMA-ES finds the best legal field for each batter and situation.
+   [Setting the field](#setting-the-field)
+6. **RL captain.** One PPO policy sets the field before every ball, for whoever is on strike, in
+   any format. [The RL captain](#the-rl-captain)
+7. **Self-play.** An adaptive batter picks how hard to attack and where to aim, at a risk fitted
+   from the data; captain and batter train against each other. [The batter fights
+   back](#the-batter-fights-back)
+8. **App.** Everything above, for any batter, in the browser. [The app](#the-app)
+
+## Three famous innings
+
+Each real shot of an innings (its direction, how far it went, whether it was in the air) is
+replayed through the simulator against four fields, each set for that batter at the match state
+of that very ball, with 200 rounds of fielding luck per shot. Runs are off the bat, on the balls
+Cricinfo tracked.
+
+| Innings | Actual runs | RL captain | Conventional | All-batters field | Dedicated search |
+|---|---:|---:|---:|---:|---:|
+| Suryakumar Yadav 117 off 55, Trent Bridge 2022 (T20) | 117 | **108** runs, 1.3 out | 118, 1.1 | 99, 1.3 | 101, 1.4 |
+| Rohit Sharma 264 off 173, Eden Gardens 2014 (ODI) | 258 | **201**, 2.5 | 234, 2.0 | 198, 2.5 | 228, 2.5 |
+| Shubman Gill 269 off 387, Edgbaston 2025 (Test) | 264 | **229**, 4.4 | 276, 2.6 | 219, 4.8 | 220, 4.8 |
+
+![Three famous innings](reports/figures/case_studies.png)
+
+- Against the conventional field the simulator lands within a run of Suryakumar's real 117, a
+  useful check on it. Every optimised field concedes less than the conventional one, by 6 to 57
+  runs.
+- In single innings the captain is level with the all-batters field rather than ahead: the
+  bigger step is from the textbook to any optimised field. Rohit's dedicated searches do worse
+  than the all-batters field here: a field fitted to a batter's usual game can miss an innings
+  that departs from it.
+- Gill's innings is from 2025, which no model trained on. His four or five expected dismissals
+  against the optimised fields (he was out once) say more about how readily the simulator holds
+  catches in the deep than about Gill. His shots counted as in the air are the ones that were
+  caught or dropped.
+- Against a different field the batter would have played differently. This measures only how the
+  same shots would have fared.
+
+The numbers are in [`reports/case_studies.csv`](reports/case_studies.csv).
+
+## Where it parts from the textbook
+
+How many fielders each kind of field puts in four parts of the ground, averaged over every
+batter context in its typical state:
+
+![Fielders by region](reports/figures/field_shapes.png)
+
+- **No slip cordon.** Conventional fields keep two to four close catchers with the new ball in
+  Tests and one or two in white-ball powerplays. The captain keeps fewer than one in Tests and
+  none in limited overs.
+- **More on the leg side.** About one more fielder on the leg side in the T20 powerplay and death
+  overs, in the ODI middle overs and with the old ball in Tests.
+- **Deeper Test fields.** With the new ball the captain has four fielders outside the ring where
+  convention has one.
+
+Only some of this should be believed. The leg-side shift comes from where runs actually go, which
+the simulator reproduces well. The missing slips are partly a blind spot: Cricinfo plots edges
+with several metres of scatter, so the simulator can't tell first, second and third slip apart
+and under-counts close catches. Per-format numbers are in
+[`reports/field_shapes.csv`](reports/field_shapes.csv).
+
+## What the data shows
 
 ![Scoring zones for 20 batters](reports/figures/scoring_zones.png)
-
-## What the data shows so far
 
 The same batter scores in very different places depending on the ball they get, which is the
 whole case for setting a field per batter and per situation rather than per format:
@@ -552,6 +659,96 @@ The app needs no raw data and no torch. A 31 MB bundle (`scripts/build_app_bundl
 deliveries, the fields, a sample of real shots and the captain's weights, and the policy runs in
 NumPy. The tests check that it sets exactly the field the trained policy sets.
 
+## Limitations
+
+Each section above lists its own; these matter most.
+
+- **Nobody recorded where the fielders stood.** Everything about fielders comes from the
+  simulator, which was fitted against stand-in fields. Comparisons between fields are fair, and
+  their ranking is more reliable than the exact number of runs saved.
+- **Catches are the weakest part.** Edges are plotted with scatter and lofted shots that fell
+  safely aren't labelled as aerial, so the simulator under-counts slip and close catches. Test
+  fields, which depend most on them, are the least trustworthy.
+- **A wagon-wheel point is where the ball was stopped,** not where it would have gone.
+- **The captain moves fielders for free** between balls and doesn't play for the strike.
+- **The adaptive batter can only reweight shots it already plays,** at a risk fitted from how
+  batters' games shift between phases.
+- Men's cricket only. Run-outs, overthrows, extras and ground sizes are not modelled.
+
+## Reproduce it
+
+Requires [uv](https://docs.astral.sh/uv/) and a free Kaggle API token
+([how to set one up](https://www.kaggle.com/docs/api)). Three commands, about nine hours on a
+laptop with an RTX 4060:
+
+```bash
+uv sync --extra cu128 --extra app            # --extra cpu without an NVIDIA GPU
+uv run python scripts/reproduce.py           # data, models, results and figures
+uv run streamlit run app/streamlit_app.py    # the app, locally
+```
+
+### Step by step
+
+Python 3.12 is picked up or installed automatically.
+
+```bash
+# with an NVIDIA GPU (CUDA 12.8 wheels)
+uv sync --extra cu128
+
+# CPU only
+uv sync --extra cpu
+```
+
+Then the steps `scripts/reproduce.py` runs, in order (`--list` shows them, `--from` resumes):
+
+```bash
+uv run python scripts/download_data.py
+uv run python scripts/build_dataset.py
+uv run python scripts/train_shot_model.py
+uv run python scripts/calibrate.py
+uv run python scripts/optimize_fields.py
+uv run python scripts/build_captain_data.py
+uv run python scripts/train_captain.py
+uv run python scripts/evaluate_captain.py
+uv run python scripts/train_selfplay.py
+uv run python scripts/evaluate_selfplay.py
+uv run python scripts/build_app_bundle.py
+uv run python scripts/case_studies.py
+uv run python scripts/make_figures.py
+```
+
+Training the shot model takes about 5 minutes on an RTX 4060 (30 epochs of ~9 s each, plus
+evaluation). Runs are logged to a local MLflow database in `mlruns/`
+(`uv run mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db` to browse them), and the
+checkpoint is written to `data/models/shot_model.pt`.
+Calibrating the simulator takes about 8 minutes and optimising all 76 field scenarios about 16.
+Building the captain's delivery banks and running a search for each of its 1,024 batter contexts
+takes about an hour and a half. Training the captain takes about two hours, and judging it a few
+minutes. Four rounds of self-play take about three hours, and training a best-response batter
+against every field takes another hour. `scripts/build_captain_data.py --risk-only` refits just
+the batter's forcing risk.
+
+The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
+`--source kaggle` or `--source cricsheet` fetches one source only.
+
+The app needs the `app` extra as well (`uv sync --extra cu128 --extra app`, or with `cpu`):
+
+```bash
+uv run python scripts/build_app_bundle.py   # optional: without it the app downloads the
+uv run streamlit run app/streamlit_app.py   # bundle attached to the latest release
+```
+
+`app/streamlit_app.py` is also what Streamlit Community Cloud runs. It installs only
+`app/requirements.txt`, the app's handful of dependencies, not the training stack.
+
+Checks:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run pre-commit install   # optional, lint on every commit
+```
+
 ## The deliveries table
 
 `scripts/build_dataset.py` turns the raw CSVs into one Parquet file (about 110 MB, 75 columns,
@@ -598,66 +795,6 @@ Share of legal deliveries with each tracking field (men's cricket):
 | T20 | 2020+ | 1,092k | 53% | 61% | 61% |
 
 The full table, including women's cricket, is written to [`reports/coverage.csv`](reports/coverage.csv).
-
-## Setup
-
-Requires [uv](https://docs.astral.sh/uv/). Python 3.12 is picked up or installed automatically.
-
-```bash
-# with an NVIDIA GPU (CUDA 12.8 wheels)
-uv sync --extra cu128
-
-# CPU only
-uv sync --extra cpu
-```
-
-Then download the data, build the table, train the shot model, calibrate the simulator and
-draw the figures:
-
-```bash
-uv run python scripts/download_data.py
-uv run python scripts/build_dataset.py
-uv run python scripts/train_shot_model.py
-uv run python scripts/calibrate.py
-uv run python scripts/optimize_fields.py
-uv run python scripts/build_captain_data.py
-uv run python scripts/train_captain.py
-uv run python scripts/evaluate_captain.py
-uv run python scripts/train_selfplay.py
-uv run python scripts/evaluate_selfplay.py
-uv run python scripts/make_figures.py
-```
-
-Training takes about 5 minutes on an RTX 4060 (30 epochs of ~9 s each, plus evaluation) and logs
-to a local MLflow database in `mlruns/` (`uv run mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db`
-to browse runs). The checkpoint is written to `data/models/shot_model.pt`.
-Calibrating the simulator takes about 8 minutes and optimising all 76 field scenarios about 16.
-Building the captain's delivery banks and running a search for each of its 1,024 batter contexts
-takes about an hour and a half. Training the captain takes about two hours, and judging it a few
-minutes. Four rounds of self-play take about three hours, and training a best-response batter
-against every field takes another hour. `scripts/build_captain_data.py --risk-only` refits just
-the batter's forcing risk.
-
-The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
-`--source kaggle` or `--source cricsheet` fetches one source only.
-
-The app needs the `app` extra as well (`uv sync --extra cu128 --extra app`, or with `cpu`):
-
-```bash
-uv run python scripts/build_app_bundle.py   # optional: without it the app downloads the
-uv run streamlit run app/streamlit_app.py   # bundle attached to the latest release
-```
-
-`app/streamlit_app.py` is also what Streamlit Community Cloud runs. It installs only
-`app/requirements.txt`, the app's handful of dependencies, not the training stack.
-
-Checks:
-
-```bash
-uv run pytest
-uv run ruff check .
-uv run pre-commit install   # optional, lint on every commit
-```
 
 ## Project layout
 
