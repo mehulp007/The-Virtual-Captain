@@ -1,0 +1,61 @@
+setter,batter,format,natural_cost,gain
+all-batters field,natural,T20,0.89572,0.00000
+all-batters field,natural,ODI,0.34834,0.00000
+all-batters field,natural,TEST,-0.22095,0.00000
+all-batters field,best response to all-batters field,T20,0.89348,0.32534
+all-batters field,best response to all-batters field,ODI,0.34873,0.14096
+all-batters field,best response to all-batters field,TEST,-0.21935,0.11046
+all-batters field,best response to searched field,T20,0.89414,0.32517
+all-batters field,best response to searched field,ODI,0.34868,0.14001
+all-batters field,best response to searched field,TEST,-0.22073,0.10434
+all-batters field,"best response to captain, round 0",T20,0.89432,0.32572
+all-batters field,"best response to captain, round 0",ODI,0.34871,0.14203
+all-batters field,"best response to captain, round 0",TEST,-0.21983,0.10854
+all-batters field,"best response to captain, round 4",T20,0.89453,0.32573
+all-batters field,"best response to captain, round 4",ODI,0.34810,0.13862
+all-batters field,"best response to captain, round 4",TEST,-0.21864,0.10673
+searched field,natural,T20,0.88942,0.00000
+searched field,natural,ODI,0.34470,0.00000
+searched field,natural,TEST,-0.22999,0.00000
+searched field,best response to all-batters field,T20,0.88747,0.31901
+searched field,best response to all-batters field,ODI,0.34223,0.14021
+searched field,best response to all-batters field,TEST,-0.22568,0.08398
+searched field,best response to searched field,T20,0.88742,0.32158
+searched field,best response to searched field,ODI,0.34351,0.14555
+searched field,best response to searched field,TEST,-0.22768,0.08746
+searched field,"best response to captain, round 0",T20,0.88814,0.31881
+searched field,"best response to captain, round 0",ODI,0.34425,0.14526
+searched field,"best response to captain, round 0",TEST,-0.23162,0.08823
+searched field,"best response to captain, round 4",T20,0.88785,0.31976
+searched field,"best response to captain, round 4",ODI,0.34276,0.14227
+searched field,"best response to captain, round 4",TEST,-0.22459,0.08475
+"captain, round 0",natural,T20,0.87265,0.00000
+"captain, round 0",natural,ODI,0.33751,0.00000
+"captain, round 0",natural,TEST,-0.22860,0.00000
+"captain, round 0",best response to all-batters field,T20,0.87163,0.32283
+"captain, round 0",best response to all-batters field,ODI,0.33609,0.14344
+"captain, round 0",best response to all-batters field,TEST,-0.23283,0.10188
+"captain, round 0",best response to searched field,T20,0.87171,0.32321
+"captain, round 0",best response to searched field,ODI,0.33925,0.14453
+"captain, round 0",best response to searched field,TEST,-0.23043,0.09868
+"captain, round 0","best response to captain, round 0",T20,0.87252,0.32427
+"captain, round 0","best response to captain, round 0",ODI,0.33837,0.14701
+"captain, round 0","best response to captain, round 0",TEST,-0.22327,0.10332
+"captain, round 0","best response to captain, round 4",T20,0.87267,0.32566
+"captain, round 0","best response to captain, round 4",ODI,0.33737,0.14451
+"captain, round 0","best response to captain, round 4",TEST,-0.22689,0.10113
+"captain, round 4",natural,T20,0.87454,0.00000
+"captain, round 4",natural,ODI,0.34202,0.00000
+"captain, round 4",natural,TEST,-0.22632,0.00000
+"captain, round 4",best response to all-batters field,T20,0.87497,0.30053
+"captain, round 4",best response to all-batters field,ODI,0.34155,0.11990
+"captain, round 4",best response to all-batters field,TEST,-0.22800,0.09366
+"captain, round 4",best response to searched field,T20,0.87322,0.30001
+"captain, round 4",best response to searched field,ODI,0.34319,0.12106
+"captain, round 4",best response to searched field,TEST,-0.23362,0.09087
+"captain, round 4","best response to captain, round 0",T20,0.87248,0.30082
+"captain, round 4","best response to captain, round 0",ODI,0.34132,0.12265
+"captain, round 4","best response to captain, round 0",TEST,-0.22463,0.09757
+"captain, round 4","best response to captain, round 4",T20,0.87324,0.30304
+"captain, round 4","best response to captain, round 4",ODI,0.34129,0.12273
+"captain, round 4","best response to captain, round 4",TEST,-0.22838,0.09771

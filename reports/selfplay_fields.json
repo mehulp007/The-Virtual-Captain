@@ -1,0 +1,818 @@
+{
+ "SA Yadav | T20 middle | spin": {
+  "all_batters": {
+   "setter": "all-batters field",
+   "field": [
+    {
+     "position": "deep_square_leg",
+     "x": -48.12,
+     "y": 0.86
+    },
+    {
+     "position": "long_off",
+     "x": 18.99,
+     "y": 52.79
+    },
+    {
+     "position": "deep_cover",
+     "x": 47.51,
+     "y": 19.73
+    },
+    {
+     "position": "cow_corner",
+     "x": -40.75,
+     "y": 35.38
+    },
+    {
+     "position": "long_on",
+     "x": -10.46,
+     "y": 53.72
+    },
+    {
+     "position": "cover",
+     "x": 19.33,
+     "y": 11.17
+    },
+    {
+     "position": "square_leg",
+     "x": -26.14,
+     "y": 3.23
+    },
+    {
+     "position": "point",
+     "x": 26.35,
+     "y": -11.0
+    },
+    {
+     "position": "mid_on",
+     "x": -17.53,
+     "y": 23.72
+    }
+   ],
+   "cost_natural": 0.9526,
+   "cost_best_response": 1.3894,
+   "aim": {
+    "intent": [
+     1.0,
+     0.988,
+     -0.145
+    ],
+    "shift_nats": 0.154,
+    "sector_natural": [
+     0.0215,
+     0.0428,
+     0.0599,
+     0.1277,
+     0.1554,
+     0.1194,
+     0.0973,
+     0.1274,
+     0.102,
+     0.0711,
+     0.0505,
+     0.025
+    ],
+    "sector_batter": [
+     0.0507,
+     0.0746,
+     0.0782,
+     0.1084,
+     0.1021,
+     0.0674,
+     0.0567,
+     0.0893,
+     0.0991,
+     0.11,
+     0.0974,
+     0.0662
+    ],
+    "six_natural": 0.0544,
+    "six_batter": 0.1
+   }
+  },
+  "before": {
+   "setter": "captain, round 0",
+   "field": [
+    {
+     "position": "deep_square_leg",
+     "x": -52.21,
+     "y": 3.89
+    },
+    {
+     "position": "long_off",
+     "x": 25.11,
+     "y": 48.56
+    },
+    {
+     "position": "deep_cover",
+     "x": 51.38,
+     "y": 16.6
+    },
+    {
+     "position": "cow_corner",
+     "x": -38.26,
+     "y": 35.72
+    },
+    {
+     "position": "long_on",
+     "x": -4.14,
+     "y": 55.15
+    },
+    {
+     "position": "cover",
+     "x": 19.75,
+     "y": 12.93
+    },
+    {
+     "position": "mid_wicket",
+     "x": -26.45,
+     "y": 7.99
+    },
+    {
+     "position": "point",
+     "x": 26.31,
+     "y": -10.47
+    },
+    {
+     "position": "mid_on",
+     "x": -13.89,
+     "y": 24.12
+    }
+   ],
+   "cost_natural": 0.9207,
+   "cost_best_response": 1.3562,
+   "aim": {
+    "intent": [
+     0.71,
+     1.0,
+     -0.086
+    ],
+    "shift_nats": 0.154,
+    "sector_natural": [
+     0.0215,
+     0.0428,
+     0.0599,
+     0.1277,
+     0.1554,
+     0.1194,
+     0.0973,
+     0.1274,
+     0.102,
+     0.0711,
+     0.0505,
+     0.025
+    ],
+    "sector_batter": [
+     0.0545,
+     0.081,
+     0.0823,
+     0.11,
+     0.0994,
+     0.0633,
+     0.0523,
+     0.084,
+     0.0949,
+     0.1082,
+     0.1012,
+     0.0688
+    ],
+    "six_natural": 0.0544,
+    "six_batter": 0.091
+   }
+  },
+  "after": {
+   "setter": "captain, round 4",
+   "field": [
+    {
+     "position": "deep_square_leg",
+     "x": -54.8,
+     "y": -1.6
+    },
+    {
+     "position": "deep_extra_cover",
+     "x": 28.91,
+     "y": 48.34
+    },
+    {
+     "position": "deep_cover",
+     "x": 51.01,
+     "y": 15.58
+    },
+    {
+     "position": "cow_corner",
+     "x": -40.89,
+     "y": 32.52
+    },
+    {
+     "position": "long_on",
+     "x": -6.81,
+     "y": 55.29
+    },
+    {
+     "position": "cover",
+     "x": 20.55,
+     "y": 11.68
+    },
+    {
+     "position": "mid_wicket",
+     "x": -26.39,
+     "y": 6.19
+    },
+    {
+     "position": "point",
+     "x": 26.48,
+     "y": -10.49
+    },
+    {
+     "position": "mid_on",
+     "x": -16.78,
+     "y": 24.63
+    }
+   ],
+   "cost_natural": 0.9303,
+   "cost_best_response": 1.3556,
+   "aim": {
+    "intent": [
+     0.979,
+     1.0,
+     -0.062
+    ],
+    "shift_nats": 0.154,
+    "sector_natural": [
+     0.0215,
+     0.0428,
+     0.0599,
+     0.1277,
+     0.1554,
+     0.1194,
+     0.0973,
+     0.1274,
+     0.102,
+     0.0711,
+     0.0505,
+     0.025
+    ],
+    "sector_batter": [
+     0.0523,
+     0.0787,
+     0.0832,
+     0.1144,
+     0.1056,
+     0.0676,
+     0.0551,
+     0.0848,
+     0.0934,
+     0.1044,
+     0.0945,
+     0.066
+    ],
+    "six_natural": 0.0544,
+    "six_batter": 0.0996
+   }
+  }
+ },
+ "V Kohli | ODI middle | pace": {
+  "all_batters": {
+   "setter": "all-batters field",
+   "field": [
+    {
+     "position": "deep_backward_point",
+     "x": 44.03,
+     "y": -31.43
+    },
+    {
+     "position": "deep_point",
+     "x": 52.92,
+     "y": -0.01
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -51.14,
+     "y": -23.86
+    },
+    {
+     "position": "deep_square_leg",
+     "x": -47.8,
+     "y": 7.06
+    },
+    {
+     "position": "cover_point",
+     "x": 26.33,
+     "y": 2.93
+    },
+    {
+     "position": "cover",
+     "x": 14.45,
+     "y": 13.66
+    },
+    {
+     "position": "mid_on",
+     "x": -10.81,
+     "y": 33.96
+    },
+    {
+     "position": "backward_point",
+     "x": 26.13,
+     "y": -13.53
+    },
+    {
+     "position": "mid_wicket",
+     "x": -23.31,
+     "y": 7.62
+    }
+   ],
+   "cost_natural": 0.4503,
+   "cost_best_response": 0.4509,
+   "aim": {
+    "intent": [
+     -0.178,
+     0.974,
+     0.295
+    ],
+    "shift_nats": 0.2026,
+    "sector_natural": [
+     0.0257,
+     0.0395,
+     0.0804,
+     0.1183,
+     0.1175,
+     0.0702,
+     0.0717,
+     0.1126,
+     0.1419,
+     0.1204,
+     0.068,
+     0.0339
+    ],
+    "sector_batter": [
+     0.0764,
+     0.1018,
+     0.1393,
+     0.1188,
+     0.0739,
+     0.0284,
+     0.0241,
+     0.0445,
+     0.0783,
+     0.1191,
+     0.1117,
+     0.0838
+    ],
+    "six_natural": 0.008,
+    "six_batter": 0.0067
+   }
+  },
+  "before": {
+   "setter": "captain, round 0",
+   "field": [
+    {
+     "position": "deep_backward_point",
+     "x": 38.63,
+     "y": -36.75
+    },
+    {
+     "position": "deep_point",
+     "x": 53.55,
+     "y": -2.68
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -49.08,
+     "y": -20.71
+    },
+    {
+     "position": "deep_midwicket",
+     "x": -49.03,
+     "y": 15.76
+    },
+    {
+     "position": "cover_point",
+     "x": 26.76,
+     "y": 4.13
+    },
+    {
+     "position": "cover",
+     "x": 13.49,
+     "y": 14.9
+    },
+    {
+     "position": "mid_on",
+     "x": -15.46,
+     "y": 31.25
+    },
+    {
+     "position": "backward_point",
+     "x": 26.17,
+     "y": -14.08
+    },
+    {
+     "position": "mid_wicket",
+     "x": -20.39,
+     "y": 10.39
+    }
+   ],
+   "cost_natural": 0.4477,
+   "cost_best_response": 0.4623,
+   "aim": {
+    "intent": [
+     -0.256,
+     1.0,
+     0.345
+    ],
+    "shift_nats": 0.2026,
+    "sector_natural": [
+     0.0257,
+     0.0395,
+     0.0804,
+     0.1183,
+     0.1175,
+     0.0702,
+     0.0717,
+     0.1126,
+     0.1419,
+     0.1204,
+     0.068,
+     0.0339
+    ],
+    "sector_batter": [
+     0.0756,
+     0.1034,
+     0.1427,
+     0.124,
+     0.0778,
+     0.0294,
+     0.0245,
+     0.044,
+     0.076,
+     0.1145,
+     0.1072,
+     0.0807
+    ],
+    "six_natural": 0.008,
+    "six_batter": 0.0062
+   }
+  },
+  "after": {
+   "setter": "captain, round 4",
+   "field": [
+    {
+     "position": "third_man",
+     "x": 34.88,
+     "y": -40.23
+    },
+    {
+     "position": "deep_point",
+     "x": 52.51,
+     "y": 1.04
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -43.93,
+     "y": -25.38
+    },
+    {
+     "position": "deep_midwicket",
+     "x": -49.34,
+     "y": 13.12
+    },
+    {
+     "position": "cover_point",
+     "x": 24.92,
+     "y": 4.24
+    },
+    {
+     "position": "cover",
+     "x": 15.65,
+     "y": 13.96
+    },
+    {
+     "position": "mid_on",
+     "x": -13.33,
+     "y": 32.8
+    },
+    {
+     "position": "backward_point",
+     "x": 26.03,
+     "y": -14.4
+    },
+    {
+     "position": "mid_wicket",
+     "x": -19.95,
+     "y": 8.03
+    }
+   ],
+   "cost_natural": 0.462,
+   "cost_best_response": 0.4535,
+   "aim": {
+    "intent": [
+     -0.236,
+     0.894,
+     0.313
+    ],
+    "shift_nats": 0.2026,
+    "sector_natural": [
+     0.0257,
+     0.0395,
+     0.0804,
+     0.1183,
+     0.1175,
+     0.0702,
+     0.0717,
+     0.1126,
+     0.1419,
+     0.1204,
+     0.068,
+     0.0339
+    ],
+    "sector_batter": [
+     0.0756,
+     0.1036,
+     0.1433,
+     0.1246,
+     0.0781,
+     0.0295,
+     0.0245,
+     0.0439,
+     0.0757,
+     0.114,
+     0.1068,
+     0.0805
+    ],
+    "six_natural": 0.008,
+    "six_batter": 0.0062
+   }
+  }
+ },
+ "JE Root | TEST new_ball | pace": {
+  "all_batters": {
+   "setter": "all-batters field",
+   "field": [
+    {
+     "position": "deep_point",
+     "x": 56.94,
+     "y": -14.29
+    },
+    {
+     "position": "point",
+     "x": 27.42,
+     "y": -3.03
+    },
+    {
+     "position": "silly_mid_off",
+     "x": 12.64,
+     "y": 7.07
+    },
+    {
+     "position": "mid_wicket",
+     "x": -14.3,
+     "y": 11.23
+    },
+    {
+     "position": "mid_wicket",
+     "x": -42.61,
+     "y": 9.14
+    },
+    {
+     "position": "extra_cover",
+     "x": 23.17,
+     "y": 22.74
+    },
+    {
+     "position": "cover",
+     "x": 37.29,
+     "y": 17.12
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -50.92,
+     "y": -26.66
+    },
+    {
+     "position": "third_slip",
+     "x": 9.68,
+     "y": -15.61
+    }
+   ],
+   "cost_natural": -0.2684,
+   "cost_best_response": -0.2417,
+   "aim": {
+    "intent": [
+     -0.011,
+     -0.437,
+     0.684
+    ],
+    "shift_nats": 0.0494,
+    "sector_natural": [
+     0.0192,
+     0.04,
+     0.0505,
+     0.0825,
+     0.0996,
+     0.0638,
+     0.0827,
+     0.1572,
+     0.1846,
+     0.1177,
+     0.0701,
+     0.032
+    ],
+    "sector_batter": [
+     0.016,
+     0.0436,
+     0.0692,
+     0.1313,
+     0.1601,
+     0.091,
+     0.0931,
+     0.1343,
+     0.1294,
+     0.0699,
+     0.041,
+     0.021
+    ],
+    "six_natural": 0.0006,
+    "six_batter": 0.0006
+   }
+  },
+  "before": {
+   "setter": "captain, round 0",
+   "field": [
+    {
+     "position": "deep_point",
+     "x": 59.72,
+     "y": -20.42
+    },
+    {
+     "position": "point",
+     "x": 28.61,
+     "y": -4.07
+    },
+    {
+     "position": "silly_mid_off",
+     "x": 12.74,
+     "y": 5.25
+    },
+    {
+     "position": "mid_wicket",
+     "x": -16.21,
+     "y": 11.34
+    },
+    {
+     "position": "mid_wicket",
+     "x": -45.29,
+     "y": 10.53
+    },
+    {
+     "position": "extra_cover",
+     "x": 21.34,
+     "y": 20.53
+    },
+    {
+     "position": "cover_point",
+     "x": 37.52,
+     "y": 10.95
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -50.38,
+     "y": -22.85
+    },
+    {
+     "position": "third_slip",
+     "x": 11.21,
+     "y": -15.98
+    }
+   ],
+   "cost_natural": -0.2731,
+   "cost_best_response": -0.2429,
+   "aim": {
+    "intent": [
+     0.005,
+     -0.467,
+     0.582
+    ],
+    "shift_nats": 0.0494,
+    "sector_natural": [
+     0.0192,
+     0.04,
+     0.0505,
+     0.0825,
+     0.0996,
+     0.0638,
+     0.0827,
+     0.1572,
+     0.1846,
+     0.1177,
+     0.0701,
+     0.032
+    ],
+    "sector_batter": [
+     0.015,
+     0.0409,
+     0.066,
+     0.1287,
+     0.1605,
+     0.0934,
+     0.0966,
+     0.1387,
+     0.1318,
+     0.0692,
+     0.0395,
+     0.0198
+    ],
+    "six_natural": 0.0006,
+    "six_batter": 0.0006
+   }
+  },
+  "after": {
+   "setter": "captain, round 4",
+   "field": [
+    {
+     "position": "deep_backward_point",
+     "x": 58.56,
+     "y": -23.09
+    },
+    {
+     "position": "point",
+     "x": 25.7,
+     "y": -1.49
+    },
+    {
+     "position": "silly_mid_off",
+     "x": 12.41,
+     "y": 5.32
+    },
+    {
+     "position": "mid_wicket",
+     "x": -16.0,
+     "y": 11.7
+    },
+    {
+     "position": "mid_wicket",
+     "x": -44.17,
+     "y": 9.85
+    },
+    {
+     "position": "extra_cover",
+     "x": 21.37,
+     "y": 22.82
+    },
+    {
+     "position": "cover",
+     "x": 37.34,
+     "y": 11.48
+    },
+    {
+     "position": "deep_backward_square",
+     "x": -50.55,
+     "y": -21.02
+    },
+    {
+     "position": "third_slip",
+     "x": 10.15,
+     "y": -15.08
+    }
+   ],
+   "cost_natural": -0.2698,
+   "cost_best_response": -0.2439,
+   "aim": {
+    "intent": [
+     -0.26,
+     -0.17,
+     0.683
+    ],
+    "shift_nats": 0.0494,
+    "sector_natural": [
+     0.0192,
+     0.04,
+     0.0505,
+     0.0825,
+     0.0996,
+     0.0638,
+     0.0827,
+     0.1572,
+     0.1846,
+     0.1177,
+     0.0701,
+     0.032
+    ],
+    "sector_batter": [
+     0.0177,
+     0.048,
+     0.072,
+     0.1334,
+     0.1593,
+     0.0864,
+     0.0875,
+     0.1287,
+     0.1263,
+     0.0726,
+     0.0448,
+     0.0232
+    ],
+    "six_natural": 0.0006,
+    "six_batter": 0.0005
+   }
+  }
+ }
+}
