@@ -1,0 +1,9 @@
+format,phase,wicket_value,balls
+ODI,death,7.603,93630
+ODI,middle,19.912,404024
+ODI,powerplay,27.749,142420
+T20,death,3.051,144026
+T20,middle,8.555,302492
+T20,powerplay,12.858,204327
+TEST,new_ball,38.008,428612
+TEST,old_ball,37.208,855242

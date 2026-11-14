@@ -1,0 +1,61 @@
+fielder,move,runs_change,runs_ci,cost_change,cost_ci,batter,context
+third slip,5 m in,0.0012,0.0003,-0.0788,0.0142,Shubman Gill,TEST new_ball pace
+third slip,5 m in,0.0009,0.0004,-0.0643,0.0136,KL Rahul,TEST new_ball pace
+third slip,5 m in,0.0008,0.0004,-0.0614,0.0134,KL Rahul,TEST old_ball pace
+third slip,5 m in,0.0016,0.0004,-0.0612,0.0141,BA Stokes,TEST new_ball pace
+third slip,5 m in,0.0022,0.0004,-0.0454,0.0118,JE Root,TEST new_ball pace
+cover,5 m in,-0.0056,0.0013,-0.0359,0.0090,JC Buttler,TEST old_ball spin
+cover,5 m in,-0.0075,0.0014,-0.0351,0.0088,KS Williamson,TEST old_ball spin
+cover,5 m in,-0.0059,0.0012,-0.0336,0.0088,Shubman Gill,TEST old_ball spin
+cover,5 m in,0.0006,0.0016,-0.0318,0.0093,RR Pant,TEST old_ball spin
+short third man,5 m in,0.0022,0.0004,-0.0313,0.0121,YBK Jaiswal,TEST new_ball pace
+third slip,5 m in,0.0017,0.0004,-0.0311,0.0108,KS Williamson,TEST new_ball pace
+cover,5 m in,-0.0002,0.0016,-0.0305,0.0094,TM Head,TEST old_ball spin
+cover,5 m in,-0.0027,0.0014,-0.0302,0.0088,BA Stokes,TEST old_ball spin
+cover,5 m in,-0.0015,0.0012,-0.0294,0.0086,TM Head,TEST old_ball pace
+mid wicket,5 m in,-0.0018,0.0011,-0.0294,0.0086,SPD Smith,TEST old_ball spin
+cover,5 m in,-0.0128,0.0017,-0.0292,0.0055,H Klaasen,ODI middle pace
+cover,5 m in,-0.0018,0.0014,-0.0276,0.0091,Mohammad Rizwan,TEST old_ball spin
+mid wicket,5 m in,-0.0041,0.0009,-0.0272,0.0084,Babar Azam,TEST old_ball spin
+cover,5 m in,-0.0043,0.0012,-0.0270,0.0077,Mohammad Rizwan,TEST old_ball pace
+cover,5 m in,0.0040,0.0015,-0.0268,0.0094,YBK Jaiswal,TEST new_ball spin
+cover,5 m in,-0.0026,0.0012,-0.0268,0.0078,V Kohli,TEST old_ball spin
+cover,5 m in,0.0020,0.0013,-0.0266,0.0082,DA Warner,TEST new_ball pace
+cover,5 m in,-0.0020,0.0012,-0.0264,0.0082,KS Williamson,TEST old_ball pace
+cover,5 m in,-0.0036,0.0011,-0.0261,0.0078,JC Buttler,TEST old_ball pace
+cover,5 m in,-0.0039,0.0011,-0.0258,0.0078,Babar Azam,TEST old_ball pace
+cover,5 m in,0.0006,0.0015,-0.0253,0.0083,JE Root,TEST old_ball pace
+mid wicket,5 m straighter,-0.0251,0.0030,-0.0249,0.0032,SA Yadav,T20 middle spin
+cover,5 m in,-0.0021,0.0012,-0.0248,0.0086,RR Pant,TEST old_ball pace
+backward point,5 m out,-0.0260,0.0025,-0.0240,0.0036,DA Warner,T20 powerplay pace
+cover,5 m in,-0.0032,0.0010,-0.0234,0.0072,SPD Smith,TEST old_ball pace
+cover,5 m straighter,-0.0180,0.0030,-0.0233,0.0042,GJ Maxwell,ODI middle spin
+cover,5 m straighter,-0.0143,0.0029,-0.0228,0.0050,Q de Kock,ODI powerplay pace
+mid wicket,5 m straighter,-0.0233,0.0036,-0.0224,0.0038,H Klaasen,T20 middle spin
+cover,5 m in,-0.0002,0.0014,-0.0205,0.0079,Q de Kock,TEST old_ball pace
+third slip,5 m in,0.0022,0.0006,-0.0200,0.0054,YBK Jaiswal,T20 powerplay pace
+mid wicket,5 m in,-0.0026,0.0011,-0.0197,0.0068,AB de Villiers,TEST old_ball spin
+cover,5 m in,-0.0016,0.0013,-0.0195,0.0072,V Kohli,TEST old_ball pace
+cover,5 m in,-0.0001,0.0012,-0.0194,0.0071,AB de Villiers,TEST old_ball pace
+cover,5 m in,-0.0019,0.0011,-0.0189,0.0072,JE Root,TEST old_ball spin
+extra cover,5 m squarer,-0.0196,0.0026,-0.0189,0.0030,H Klaasen,T20 middle pace
+cover,5 m in,-0.0016,0.0013,-0.0186,0.0070,BA Stokes,TEST old_ball pace
+cow corner,5 m squarer,-0.0168,0.0017,-0.0184,0.0028,SA Yadav,T20 middle pace
+mid wicket,5 m in,-0.0073,0.0013,-0.0182,0.0049,RG Sharma,ODI middle spin
+third slip,5 m out,-0.0221,0.0022,-0.0182,0.0033,KL Rahul,T20 powerplay pace
+cover,5 m in,-0.0060,0.0016,-0.0173,0.0046,Babar Azam,ODI middle spin
+point,5 m squarer,-0.0145,0.0023,-0.0172,0.0054,DA Warner,ODI powerplay pace
+short fine leg,5 m out,-0.0167,0.0018,-0.0171,0.0025,Shubman Gill,T20 powerplay pace
+cover,5 m in,-0.0061,0.0017,-0.0170,0.0047,TM Head,ODI middle spin
+third slip,5 m out,-0.0204,0.0021,-0.0170,0.0031,JC Buttler,T20 powerplay pace
+mid wicket,5 m squarer,-0.0160,0.0028,-0.0169,0.0031,GJ Maxwell,T20 middle spin
+cover,5 m in,0.0071,0.0016,-0.0166,0.0078,SPD Smith,TEST new_ball pace
+third slip,5 m out,-0.0201,0.0020,-0.0165,0.0032,Mohammad Rizwan,T20 powerplay pace
+cover,5 m straighter,-0.0111,0.0026,-0.0146,0.0038,AB de Villiers,ODI middle pace
+extra cover,5 m in,-0.0015,0.0009,-0.0140,0.0048,RG Sharma,ODI powerplay pace
+mid on,5 m out,-0.0060,0.0012,-0.0138,0.0027,GJ Maxwell,T20 middle pace
+square leg,5 m squarer,-0.0095,0.0028,-0.0113,0.0037,Q de Kock,T20 powerplay pace
+cover,5 m in,-0.0052,0.0015,-0.0110,0.0037,V Kohli,ODI middle pace
+mid wicket,5 m straighter,-0.0115,0.0033,-0.0101,0.0036,RR Pant,T20 middle spin
+cover,5 m in,-0.0030,0.0017,-0.0092,0.0042,RG Sharma,ODI middle pace
+mid off,5 m out,-0.0032,0.0011,-0.0060,0.0020,SA Yadav,T20 powerplay pace
