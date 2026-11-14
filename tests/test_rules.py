@@ -90,3 +90,37 @@ def test_repair_handles_random_fields():
             field = np.column_stack([np.sin(angle) * r, np.cos(angle) * r])
             check = rules.check(rules.repair(field, fmt, phase), fmt, phase)
             assert check.legal, check.problems
+
+
+def _random_fields(n, seed=0):
+    rng = np.random.default_rng(seed)
+    angle = rng.uniform(0, 2 * np.pi, (n, 9))
+    radius = rng.uniform(0, 75, (n, 9))
+    return np.stack([radius * np.cos(angle), radius * np.sin(angle)], axis=-1)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "phase"), [("T20", "powerplay"), ("ODI", "death"), ("TEST", "old_ball")]
+)
+def test_batch_repair_is_legal_and_agrees_with_repair(fmt, phase):
+    fields = _random_fields(500)
+    n = len(fields)
+    fixed = rules.repair_many(
+        fields,
+        np.full(n, rules.max_outside_ring(fmt, phase)),
+        np.full(n, rules.max_leg_behind_square(fmt)),
+    )
+    same = 0
+    for f, g in zip(fields, fixed, strict=True):
+        assert rules.check(g, fmt, phase).legal
+        same += np.array_equal(g, rules.repair(f, fmt, phase))
+    assert same / n > 0.97  # they differ only in which of two equally cheap fielders moves
+
+
+def test_batch_repair_leaves_every_template_alone():
+    for key, names in TEMPLATES.items():
+        f = field_xy(names)
+        np.testing.assert_array_equal(rules.repair(f, key[0], key[1]), f)
+        out = rules.repair_many(f[None], np.array([rules.max_outside_ring(key[0], key[1])]),
+                                np.array([rules.max_leg_behind_square(key[0])]))[0]  # fmt: skip
+        np.testing.assert_array_equal(out, f)
