@@ -33,6 +33,7 @@ from virtual_captain.field import rules
 from virtual_captain.field.geometry import BOUNDARY_RADIUS, PITCH_HALF
 from virtual_captain.field.positions import BOWLER, KEEPER_BACK, KEEPER_UP, xy
 from virtual_captain.field.templates import KEYS
+from virtual_captain.rl.batter import forcing_chance, intent_weights
 from virtual_captain.rl.data import N_PROFILE, CaptainData
 from virtual_captain.sim import physics
 from virtual_captain.sim.params import SimParams, situation_code
@@ -147,6 +148,12 @@ class Overs:
         tests = ws.filter(ws["format"] == "TEST").sort("wickets_before")
         self.lam_test = tests["wicket_value"].to_numpy()
 
+        # extra dismissal chance per nat of forcing, by format (rl.batter)
+        self.kappa = np.zeros(3)
+        if data.forcing_risk is not None:
+            risk = dict(zip(data.forcing_risk["format"], data.forcing_risk["kappa"], strict=True))
+            self.kappa = np.array([risk[f] for f in FORMATS])
+
         z = np.zeros(n, dtype=np.int64)
         self.key, self.striker, self.other = z.copy(), z.copy(), z.copy()
         self.wickets, self.balls_remaining, self.ball_age = z.copy(), z.copy(), z.copy()
@@ -246,11 +253,23 @@ class Overs:
         fields = decode_fields(self.base_z[self.key] + a * STEP)
         return rules.repair_many(fields, self.key_max_out[self.key], self.key_max_leg[self.key])
 
-    def step(self, fields: np.ndarray, wicket_value: np.ndarray | None = None):
+    def step(
+        self,
+        fields: np.ndarray,
+        wicket_value: np.ndarray | None = None,
+        intent: np.ndarray | None = None,
+        start_intent: np.ndarray | None = None,
+    ):
         """Bowl one ball in every over to the given (n, 9, 2) fields, which must be legal.
 
+        `intent` (n, 3) is the striker's intent against these fields (rl.batter); without one
+        the batter plays their natural game. `start_intent` is their intent against the
+        starting field, for the relative reward.
+
         Returns reward (n,), done (n,) and a dict of per-over arrays: the expected runs and
-        wickets of the ball, and the runs and wicket that actually happened.
+        wickets of the ball, the runs and wicket that actually happened, and with an intent the
+        ball's expected cost, what it would have cost had the batter played naturally, and the
+        extra dismissal chance the batter took on by forcing their game.
         """
         n, k = self.n, self.k
         lam = self.wicket_value() if wicket_value is None else wicket_value
@@ -262,6 +281,8 @@ class Overs:
         idx = (a[:, None] + (u_pick * length[:, None]).astype(np.int64)).ravel()
         uniforms = self.rng.random((n * k, 4))
         u_new = self.rng.random((n, 2))
+        adaptive = intent is not None or start_intent is not None
+        u_adapt = self.rng.random((n, 2)) if adaptive else None  # which delivery, forced error
         situation = np.repeat(self.key_situation[self.key], k)
         copies = 2 if self.relative else 1  # the starting field faces the same deliveries
         if self.relative:
@@ -283,13 +304,41 @@ class Overs:
         )
         runs = runs.reshape(copies, n, k).astype(np.float64)
         wicket = ((kind == physics.CAUGHT) | (kind == physics.FIELD_FREE_OUT)).reshape(copies, n, k)
-        cost = runs.mean(2) - lam * wicket.mean(2)
+        info = {}
+        if adaptive:
+            shots = (
+                self.bank.outcome[idx].reshape(n, k),
+                self.bank.theta[idx].reshape(n, k),
+                self.bank.dist[idx].reshape(n, k),
+            )
+            kappa = self.kappa[self.key_format[self.key]]
+            exp_runs, exp_wkts, forcing, weights = [], [], [], []
+            for c, it in enumerate((intent, start_intent)[:copies]):
+                it = np.zeros((n, 3)) if it is None else it
+                w, kl = intent_weights(it, *shots)
+                f = forcing_chance(kl, kappa)
+                exp_runs.append((1 - f) * (w * runs[c]).sum(1))
+                exp_wkts.append(f + (1 - f) * (w * wicket[c]).sum(1))
+                forcing.append(f)
+                weights.append(w)
+            exp_runs, exp_wkts = np.array(exp_runs), np.array(exp_wkts)
+            cost = exp_runs - lam * exp_wkts
+            info["natural_cost"] = runs[0].mean(1) - lam * wicket[0].mean(1)
+            info["forcing"] = forcing[0]
+            # the delivery that actually happens is drawn by the batter's weights
+            j = (weights[0].cumsum(1) < u_adapt[:, :1]).sum(1).clip(max=k - 1)
+            forced_out = u_adapt[:, 1] < forcing[0]
+            r0 = np.where(forced_out, 0, runs[0, np.arange(n), j]).astype(np.int64)
+            w0 = forced_out | wicket[0, np.arange(n), j]
+        else:
+            cost = runs.mean(2) - lam * wicket.mean(2)
+            exp_runs, exp_wkts = runs.mean(2), wicket.mean(2)
+            # the first delivery is what actually happens
+            r0, w0 = runs[0, :, 0].astype(np.int64), wicket[0, :, 0]
         reward = cost[1] - cost[0] if self.relative else -cost[0]
-        exp_runs, exp_wkts = runs[0].mean(1), wicket[0].mean(1)
-        runs, wicket = runs[0], wicket[0]
+        exp_runs, exp_wkts = exp_runs[0], exp_wkts[0]
 
         # what actually happened decides the next ball
-        r0, w0 = runs[:, 0].astype(np.int64), wicket[:, 0]
         out = np.flatnonzero(w0)
         self.wickets[out] += 1
         if len(out):  # the new batter takes strike
@@ -303,7 +352,9 @@ class Overs:
 
         self.ep_return += reward
         done = (self.ball >= self.length) | (self.wickets >= 10)
-        info = {"runs": r0, "wicket": w0, "expected_runs": exp_runs, "expected_wickets": exp_wkts}
+        info |= {"runs": r0, "wicket": w0, "expected_runs": exp_runs, "expected_wickets": exp_wkts}
+        if adaptive:
+            info["cost"] = cost[0]
         return reward, done, info
 
 
