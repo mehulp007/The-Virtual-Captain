@@ -152,8 +152,9 @@ def forcing_risk(lf: pl.LazyFrame) -> pl.DataFrame:
     risk = fit_forcing_risk(shifts)
     risk.write_csv(REPORTS_DIR / "forcing_risk.csv", float_precision=5)
     for r in risk.iter_rows(named=True):
-        print(f"{r['format']}: {r['fitted']:.4f} +/- {r['ci']:.4f} extra dismissals per ball "
-              f"per nat of pattern shift ({r['cases']} cases)")  # fmt: skip
+        print(f"{r['format']}: {r['per_attack_fit']:.4f} +/- {r['per_attack_ci']:.4f} extra "
+              f"dismissals per ball per unit of attack, {r['per_shift_fit']:.4f} +/- "
+              f"{r['per_shift_ci']:.4f} per nat of pattern shift ({r['cases']} cases)")  # fmt: skip
     return risk
 
 

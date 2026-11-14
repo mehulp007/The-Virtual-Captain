@@ -33,7 +33,7 @@ from virtual_captain.field import rules
 from virtual_captain.field.geometry import BOUNDARY_RADIUS, PITCH_HALF
 from virtual_captain.field.positions import BOWLER, KEEPER_BACK, KEEPER_UP, xy
 from virtual_captain.field.templates import KEYS
-from virtual_captain.rl.batter import forcing_chance, intent_weights
+from virtual_captain.rl.batter import attack_shift, forcing_chance, intent_weights
 from virtual_captain.rl.data import N_PROFILE, CaptainData
 from virtual_captain.sim import physics
 from virtual_captain.sim.params import SimParams, situation_code
@@ -149,10 +149,13 @@ class Overs:
         self.lam_test = tests["wicket_value"].to_numpy()
 
         # extra dismissal chance per nat of forcing, by format (rl.batter)
-        self.kappa = np.zeros(3)
+        self.per_attack, self.per_shift = np.zeros(3), np.zeros(3)
+        self.max_shift = np.full(3, np.inf)
         if data.forcing_risk is not None:
-            risk = dict(zip(data.forcing_risk["format"], data.forcing_risk["kappa"], strict=True))
-            self.kappa = np.array([risk[f] for f in FORMATS])
+            risk = {r["format"]: r for r in data.forcing_risk.iter_rows(named=True)}
+            self.per_attack = np.array([risk[f]["per_attack"] for f in FORMATS])
+            self.per_shift = np.array([risk[f]["per_shift"] for f in FORMATS])
+            self.max_shift = np.array([risk[f]["max_shift"] for f in FORMATS])
 
         z = np.zeros(n, dtype=np.int64)
         self.key, self.striker, self.other = z.copy(), z.copy(), z.copy()
@@ -310,13 +313,17 @@ class Overs:
                 self.bank.outcome[idx].reshape(n, k),
                 self.bank.theta[idx].reshape(n, k),
                 self.bank.dist[idx].reshape(n, k),
+                self.bank.aerial[idx].reshape(n, k),
             )
-            kappa = self.kappa[self.key_format[self.key]]
+            fmt = self.key_format[self.key]
             exp_runs, exp_wkts, forcing, weights = [], [], [], []
             for c, it in enumerate((intent, start_intent)[:copies]):
                 it = np.zeros((n, 3)) if it is None else it
-                w, kl = intent_weights(it, *shots)
-                f = forcing_chance(kl, kappa)
+                w, kl = intent_weights(it, *shots, max_shift=self.max_shift[fmt])
+                f = forcing_chance(
+                    attack_shift(w, shots[0], shots[2], shots[3]), kl,
+                    self.per_attack[fmt], self.per_shift[fmt],
+                )  # fmt: skip
                 exp_runs.append((1 - f) * (w * runs[c]).sum(1))
                 exp_wkts.append(f + (1 - f) * (w * wicket[c]).sum(1))
                 forcing.append(f)
