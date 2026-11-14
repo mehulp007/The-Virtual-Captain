@@ -5,8 +5,10 @@ situation before 2025, plus "all batters" for each of the 16 situations. About o
 seven is kept out of training entirely, to test the captain on batters it has never seen.
 
 For every context: a bank of simulated deliveries to learn from, a separate one to judge on,
-the batter's profile, the analyst's field and a dedicated CMA-ES field (searched exactly as in
-scripts/optimize_fields.py). The all-batters contexts reuse the fields optimised there.
+the batter's profile, the analyst's field and a dedicated CMA-ES field. The search is the one in
+scripts/optimize_fields.py, run on the context's learning bank and started from the field
+optimised there for all batters in the situation, which is also where the RL captain starts.
+The all-batters contexts reuse those fields.
 
 Usage:
   uv run python scripts/build_captain_data.py
@@ -102,6 +104,43 @@ def start_states(lf: pl.LazyFrame) -> pl.DataFrame:
     return states.with_columns(key.alias("key")).sort("format", "key")
 
 
+def search(c: int, key: tuple, shots: Shots, start: np.ndarray, lam: dict, args) -> np.ndarray:
+    """CMA-ES for one batter context on its learning bank, started from the field optimised
+    for all batters in the situation (where the captain starts too)."""
+    fmt, phase, bowling = key
+    scen = Scenario(
+        fmt=fmt,
+        phase=phase,
+        bowling=bowling,
+        wicket_value=lam[(fmt, phase)],
+        shots=shots,
+        uniforms=np.random.default_rng(1000 + 2 * c).random((len(shots), 4)),
+    )
+    return optimise(scen, start, args.generations, args.population, seed=c).field
+
+
+def search_again(args) -> int:
+    """Redo only the searches, on the banks already built."""
+    data = CaptainData.load()
+    lam = as_dict(wicket_values(pl.scan_parquet(PROCESSED_DIR / "deliveries.parquet")))
+    pooled = data.pooled_fields
+    ctx = data.contexts
+    fields = data.searched_fields
+    t0 = time.perf_counter()
+    for c, fmt, phase, bowling, key, is_pooled in ctx.select(
+        "context", "format", "phase", "bowling", "key", "pooled"
+    ).iter_rows():
+        if not is_pooled:
+            start = pooled[key]
+            fields[c] = search(c, (fmt, phase, bowling), data.learn.shots(c), start, lam, args)
+        if c % 50 == 0:
+            print(f"[{c + 1}/{ctx.height}] {(time.perf_counter() - t0) / 60:.1f} min", flush=True)
+    data.contexts = ctx.with_columns(pl.Series("searched", [f.ravel().tolist() for f in fields]))
+    data.save()
+    print(f"searched {ctx.height} contexts again in {(time.perf_counter() - t0) / 60:.1f} min")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--min-balls", type=int, default=800)
@@ -111,7 +150,10 @@ def main(argv=None) -> int:
     p.add_argument("--generations", type=int, default=70)
     p.add_argument("--population", type=int, default=16)
     p.add_argument("--limit", type=int, default=None, help="only the first N batter contexts")
+    p.add_argument("--search-only", action="store_true", help="redo the searches, keep the banks")
     args = p.parse_args(argv)
+    if args.search_only:
+        return search_again(args)
 
     t_all = time.perf_counter()
     model = ShotModel.load(DATA_DIR / "models" / "shot_model.pt")
@@ -175,18 +217,8 @@ def main(argv=None) -> int:
         judge.append(banks[1])
 
         analyst = analyst_field(rows.filter(pl.col("outcome") == enc.IN_PLAY), fmt, phase, bowling)
-        if pooled_context:
-            searched = np.array(pooled[spec["key"]])
-        else:
-            scen = Scenario(
-                fmt=fmt,
-                phase=phase,
-                bowling=bowling,
-                wicket_value=lam[(fmt, phase)],
-                shots=banks[0],
-                uniforms=np.random.default_rng(1000 + 2 * c).random((len(banks[0]), 4)),
-            )
-            searched = optimise(scen, analyst, args.generations, args.population, seed=c).field
+        start = np.array(pooled[spec["key"]])
+        searched = start if pooled_context else search(c, spec["key"], banks[0], start, lam, args)
 
         rows_out.append(
             {
