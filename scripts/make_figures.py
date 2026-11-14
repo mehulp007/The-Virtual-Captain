@@ -5,6 +5,7 @@ Usage:
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -19,6 +20,7 @@ import polars as pl  # noqa: E402
 from virtual_captain.models import encoding as enc  # noqa: E402
 from virtual_captain.paths import DATA_DIR, FIGURES_DIR, PROCESSED_DIR, REPORTS_DIR  # noqa: E402
 from virtual_captain.viz import style  # noqa: E402
+from virtual_captain.viz.field_plot import draw_field  # noqa: E402
 from virtual_captain.viz.wagon import (  # noqa: E402
     plot_rose,
     plot_run_rose,
@@ -298,6 +300,113 @@ def field_example(df: pl.LazyFrame, out: Path, batter: str = "H Klaasen") -> Non
     plt.close(fig)
 
 
+SHOWCASE = [
+    "SA Yadav | T20 middle | spin",
+    "V Kohli | ODI middle | pace",
+    "JE Root | TEST new_ball | pace",
+]
+
+
+def _keeper_and_bowler(field9: np.ndarray, bowling: str) -> np.ndarray:
+    from virtual_captain.field.positions import with_keeper_and_bowler
+
+    return with_keeper_and_bowler(field9, keeper_up=bowling == "spin")
+
+
+def optimised_fields(results: pl.DataFrame, fields: list[dict], out: Path) -> None:
+    """Conventional, analyst and optimised fields for a few batters, with what each costs."""
+    by_name = {f["scenario"]: f for f in fields}
+    chosen = [s for s in SHOWCASE if s in by_name] or [
+        f["scenario"] for f in fields if not f["scenario"].startswith("all")
+    ][:3]
+    kinds = [("conventional", style.SERIES[0]), ("analyst", style.SERIES[3]),
+             ("optimised", style.SERIES[1])]  # fmt: skip
+    fig, axes = plt.subplots(len(chosen), 3, figsize=(11.5, 3.9 * len(chosen)))
+    axes = np.atleast_2d(axes)
+    for row, scenario in enumerate(chosen):
+        r = results.filter(pl.col("scenario") == scenario).row(0, named=True)
+        for col, (kind, colour) in enumerate(kinds):
+            ax = axes[row, col]
+            draw_field(ax)
+            f9 = np.array([[p["x"], p["y"]] for p in by_name[scenario][kind]])
+            _draw_fielders(ax, _keeper_and_bowler(f9, r["bowling"]), colour)
+            title = f"{kind}: {r[f'{kind}_runs_per_ball']:.2f} runs, "
+            title += f"{r[f'{kind}_wickets_per_ball'] * 100:.2f}% wkts per ball"
+            ax.set_title(title, fontsize=9)
+        axes[row, 0].text(
+            -95, 0, scenario.replace(" | ", "\n"), rotation=90, ha="center", va="center",
+            fontsize=9, color=style.INK_SECONDARY,
+        )  # fmt: skip
+    fig.suptitle(
+        "Fields for three batters, judged on simulated deliveries not used in the search",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def value_map_figure(data: dict, out: Path) -> None:
+    """Where one more fielder saves the most, given the rest of the optimised field."""
+    from matplotlib.colors import LinearSegmentedColormap
+
+    coords = np.array(data["coords"])
+    grid = np.array([[np.nan if v is None else v for v in r] for r in data["saved"]], dtype=float)
+    ramp = LinearSegmentedColormap.from_list("blue", ["#fcfcfb", "#86b6ef", "#2a78d6", "#0d366b"])
+    fig, ax = plt.subplots(figsize=(6.2, 6.4))
+    lo, hi = coords[0], coords[-1]
+    img = ax.imshow(
+        np.clip(grid, 0, None), origin="lower", extent=(lo, hi, lo, hi), cmap=ramp, zorder=0
+    )
+    draw_field(ax)
+    f8 = np.array([[p["x"], p["y"]] for p in data["field"]])
+    for x, y in f8:
+        ax.scatter(x, y, s=60, color=style.SERIES[1], edgecolor=style.SURFACE, lw=1.5, zorder=4)
+    cbar = fig.colorbar(img, ax=ax, fraction=0.04, pad=0.02)
+    cbar.set_label("cost saved per ball (runs, net of wickets)", color=style.INK_SECONDARY)
+    ax.set_title(
+        f"{data['scenario']}: where the ninth fielder is worth most\n"
+        f"(eight fielders fixed; {data['dropped'].replace('_', ' ')} taken out)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def optimiser_gains(results: pl.DataFrame, out: Path) -> None:
+    """Cost saved per ball by the optimised field over the analyst's, per scenario."""
+    r = (
+        results.filter(pl.col("batter") != "all batters")
+        .with_columns(
+            (-pl.col("optimised_vs_analyst")).alias("gain"),
+            (-pl.col("optimised_vs_analyst_hi")).alias("gain_lo"),
+            (-pl.col("optimised_vs_analyst_lo")).alias("gain_hi"),
+        )
+        .sort("gain")
+    )
+    fig, ax = plt.subplots(figsize=(7.5, 0.28 * r.height + 1.4))
+    y = np.arange(r.height)
+    for fmt in ("TEST", "ODI", "T20"):
+        m = (r["format"] == fmt).to_numpy()
+        ax.hlines(y[m], r["gain_lo"].to_numpy()[m], r["gain_hi"].to_numpy()[m],
+                  color=style.FORMAT_COLOURS[fmt], lw=2)  # fmt: skip
+        ax.scatter(r["gain"].to_numpy()[m], y[m], color=style.FORMAT_COLOURS[fmt], s=30,
+                   label=FORMAT_NAMES[fmt], zorder=3)  # fmt: skip
+    ax.axvline(0, color=style.AXIS, lw=1)
+    labels = [f"{b} · {f} {p} · {bw}" for b, f, p, bw in
+              r.select("batter", "format", "phase", "bowling").iter_rows()]  # fmt: skip
+    ax.set_yticks(y, labels, fontsize=7.5)
+    ax.set_xlabel("cost saved per ball vs the analyst's field (runs, net of wickets)")
+    ax.xaxis.grid(True)
+    ax.set_axisbelow(True)
+    ax.legend(loc="lower right", fontsize=8)
+    ax.set_title("Optimised vs analyst field, with 95% intervals", loc="left")
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, default=PROCESSED_DIR / "deliveries.parquet")
@@ -332,6 +441,16 @@ def main(argv: list[str] | None = None) -> int:
     if calibration.exists():
         sim_calibration_plot(pl.read_csv(calibration), args.out / "sim_calibration.png")
     field_example(df, args.out / "field_example.png")
+
+    results_csv = REPORTS_DIR / "optimizer_results.csv"
+    if results_csv.exists():
+        results = pl.read_csv(results_csv)
+        fields = json.loads((REPORTS_DIR / "optimized_fields.json").read_text())
+        optimised_fields(results, fields, args.out / "optimised_fields.png")
+        optimiser_gains(results, args.out / "optimiser_gains.png")
+    vmap = REPORTS_DIR / "value_map.json"
+    if vmap.exists():
+        value_map_figure(json.loads(vmap.read_text()), args.out / "value_map.png")
     print(f"figures written to {args.out}")
     return 0
 
