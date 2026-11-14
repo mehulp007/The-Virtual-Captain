@@ -9,9 +9,11 @@
                 the models were trained on
   captain       the policy's weights, run with numpy
 
-Built by scripts/build_app_bundle.py into data/app/bundle.npz.
+Built by scripts/build_app_bundle.py into data/app/bundle.npz, and attached to the GitHub
+release the deployed app downloads it from.
 """
 
+import urllib.request
 from dataclasses import dataclass, fields
 from pathlib import Path
 
@@ -20,6 +22,7 @@ import numpy as np
 from virtual_captain.paths import DATA_DIR
 
 BUNDLE = DATA_DIR / "app" / "bundle.npz"
+BUNDLE_URL = "https://github.com/mehulp007/The-Virtual-Captain/releases/latest/download/bundle.npz"
 SHOTS = 8192
 WAGON = 1500
 
@@ -78,6 +81,16 @@ class Bundle:
     def load(cls, path: Path = BUNDLE) -> "Bundle":
         with np.load(path, allow_pickle=False) as a:
             return cls(**{f.name: a[f.name] for f in fields(cls)})
+
+
+def fetch(path: Path = BUNDLE, url: str = BUNDLE_URL) -> Path:
+    """The bundle at `path`, downloading it first if it isn't there yet."""
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_suffix(".part")
+        urllib.request.urlretrieve(url, part)
+        part.replace(path)
+    return path
 
 
 def policy_weights(model) -> dict[str, np.ndarray]:

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from stable_baselines3 import PPO
 
-from virtual_captain.app.bundle import Bundle, from_captain_data, policy_weights
+from virtual_captain.app.bundle import Bundle, fetch, from_captain_data, policy_weights
 from virtual_captain.app.engine import (
     CAPTAIN,
     INNINGS_OVERS,
@@ -17,7 +17,9 @@ from virtual_captain.app.engine import (
 )
 from virtual_captain.rl.env import CaptainVecEnv, Overs
 
-APP = Path(__file__).resolve().parents[1] / "src" / "virtual_captain" / "app" / "streamlit_app.py"
+ROOT = Path(__file__).resolve().parents[1]
+APP = ROOT / "src" / "virtual_captain" / "app" / "streamlit_app.py"
+ENTRY = ROOT / "app" / "streamlit_app.py"  # what Streamlit Community Cloud runs
 
 
 @pytest.fixture(scope="module")
@@ -98,12 +100,20 @@ def test_value_map_is_zero_where_the_fielder_already_stands(engine):
     assert legal.any() and not legal.all()  # the pitch itself is off limits
 
 
-def test_the_app_runs(bundle, monkeypatch):
+def test_a_missing_bundle_is_downloaded(bundle, tmp_path):
+    path = tmp_path / "app" / "bundle.npz"
+    assert fetch(path, bundle.as_uri()) == path
+    assert path.read_bytes() == bundle.read_bytes()
+    assert fetch(path, "file:///nowhere/at/all") == path  # already there: no download
+
+
+@pytest.mark.parametrize("script", [APP, ENTRY])
+def test_the_app_runs(bundle, monkeypatch, script):
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setenv("VC_BUNDLE", str(bundle))
-    at = AppTest.from_file(str(APP), default_timeout=120).run()
+    at = AppTest.from_file(str(script), default_timeout=120).run()
     assert not at.exception
     assert at.title[0].value == "The Virtual Captain"
     at.sidebar.radio[0].set_value("TEST").run()
