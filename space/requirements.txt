@@ -1,0 +1,7 @@
+numpy==2.5.4
+numba==0.68.1
+polars==2.0.0
+pyyaml==6.0.3
+matplotlib==3.11.2
+plotly==7.1.0
+streamlit==1.67.0
