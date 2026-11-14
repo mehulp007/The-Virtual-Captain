@@ -403,7 +403,122 @@ Full results are in [`reports/captain_static.csv`](reports/captain_static.csv),
   a field that gives away a single to get the weaker batter on strike earns nothing for it.
 - **Moving fielders is free.** It can reshuffle all nine between balls, which a real captain
   would not do. It also plans only within an over or spell, with no thought for the next bowler.
-- **The batter doesn't adapt.** Each batter plays to their shot model whatever field is set.
+- **The batter doesn't adapt here.** Each batter plays to their shot model whatever field is
+  set. The next section gives the batter a say.
+
+## The batter fights back
+
+Everything so far assumes the batter ignores the field. A real batter sees the gaps and goes for
+them, and a field that only works against a batter who doesn't look is worth less than it seems.
+Here the batter gets to look, and the captain trains against batters who do.
+
+**What the batter can do.** Before each ball it picks an intent: how much to attack (−1 to 1)
+and a direction to work the ball towards. The intent reweights the 256 simulated deliveries the
+ball is judged on. Attacking moves weight to balls hit to the deep, in the air and over the rope.
+The direction moves weight to ground shots heading that way. The share of balls the batter
+connects with stays the same, and no intent can conjure a shot the batter doesn't play: it can
+only make the ones they have more or less common.
+
+**What the batter sees**: the same match state and 29-number profile as the captain, plus the
+field as 24 counts of fielders inside and outside the ring in each 30-degree sector.
+
+**What it costs, from the data.** A batter who changes their game gets out more. In the tracking
+data a false shot (not in control) brings a dismissal 13.6% of the time, against 0.24% for a
+controlled one, and shots into a batter's rare sectors are false 35% of the time, against 5% in
+their usual ones. To put a number on it, every batter's game is compared across phases of the
+innings (same batter, same format, same type of bowling, at least 300 balls). The dismissals
+beyond what each phase's mix of shots explains on its own are fitted to two things: how much
+more the batter attacked, and how far their scoring pattern moved (KL divergence over 27 cells).
+
+| | Extra dismissals per ball, per unit of attack | per nat of pattern shift | Largest shift seen (99th pct) | Cases |
+|---|---:|---:|---:|---:|
+| T20 | 0.112 ± 0.011 | 0.015 ± 0.014 | 0.154 nats | 676 |
+| ODI | 0.043 ± 0.006 | 0.022 ± 0.008 | 0.203 nats | 746 |
+| Test | 0 (fit −0.004 ± 0.008) | 0.003 ± 0.011 | 0.049 nats | 1,057 |
+
+Those slopes become an extra chance of getting out on every ball the batter forces, and no
+intent can move a batter's game further than the largest shift seen in the data for that format.
+In a typical T20 state, a batter attacking flat out pays about one extra wicket for every 24
+extra runs.
+
+**The game.** Captain and batter play a zero-sum game: every run the batter gains over their
+natural game is a run the captain loses. It is written as a
+[PettingZoo](https://pettingzoo.farama.org/) environment, with batched versions of each side for
+training.
+
+**Self-play.** It starts from the captain in the previous section. Each round the batter carries
+on training (PPO, 2 million balls) against every captain so far, each over played against one of
+them. Then the captain carries on training (3 million balls) against every batter so far,
+including the natural one. Playing a mix of past opponents rather than only the latest one is
+fictitious play: it stops the two sides chasing each other round in circles. Four rounds took
+about three hours.
+
+**Exploitability.** To measure how far a field can be exploited, a fresh batter is trained from
+scratch (1.5 million balls) against that field-setter alone. What it gains over its natural game
+is measured on deliveries neither side trained on. This is done for the captain after every
+round and for the two fixed fields from the CMA-ES searches, with the same budget for each.
+
+### Results
+
+Runs per ball the best-response batter gains (± about 0.005, 95% interval; lower is harder to
+exploit):
+
+| | All-batters field | Searched field | Captain at the start | Captain after 4 rounds |
+|---|---:|---:|---:|---:|
+| T20, batters it trained on | 0.329 | 0.327 | 0.328 | **0.308** |
+| T20, batters it never saw | 0.327 | 0.313 | 0.323 | **0.301** |
+| ODI, batters it trained on | 0.140 | 0.144 | 0.146 | **0.122** |
+| ODI, batters it never saw | 0.135 | 0.129 | 0.138 | **0.116** |
+| Test, batters it trained on | 0.109 | **0.088** | 0.103 | 0.096 |
+| Test, batters it never saw | 0.100 | **0.078** | 0.095 | 0.091 |
+
+Exploitability falls in every round in T20s and ODIs, and in all but the last round in Tests:
+by 6% in T20s, 17% in ODIs and 7% in Tests overall. Each round's new batter also gets less out
+of the newest captain than the batter before it did (in T20s: 0.328, 0.323, 0.317, 0.313 runs a
+ball). In limited-overs cricket the final captain is harder to exploit than either fixed field.
+In Tests the dedicated search for each batter is still the hardest to exploit.
+
+The price is small. Against batters playing their natural game, the final captain gives away
+0.003 runs a ball more than at the start in T20s and 0.004 more in ODIs, and 0.002 less in Tests.
+Against a batter who knows the field, it gives away 0.018 runs a ball less in T20s (about 2 runs
+an innings) and 0.020 less in ODIs.
+
+![Exploitability over the rounds](reports/figures/selfplay_exploitability.png)
+
+**Most of what the batter gains can't be fielded away.** Each best-response batter was also set
+against every other field. The batters hardly specialise: one trained to beat one field gains
+almost as much against any other, and the differences between fields are larger than the
+differences between batters. Mostly they learn to attack harder. For a T20 batter in a typical
+state, sixes go from 5.7% to 9.5% of deliveries and catching chances from 3.7% to 6.1%, and no
+placement of nine fielders takes that away. What self-play wins back is the part tied to the
+field, about 0.02 runs a ball.
+
+![Every field against every batter](reports/figures/selfplay_matrix.png)
+
+Below, for three batters: the fields before and after self-play, and where the batter who knows
+each field sends its extra shots. Against spin, Suryakumar Yadav's best response nearly doubles
+his sixes and works the ball fine, behind the wicket.
+
+![Fields before and after self-play](reports/figures/selfplay_fields.png)
+
+Full results are in [`reports/selfplay_exploitability.csv`](reports/selfplay_exploitability.csv),
+[`reports/selfplay_rounds.csv`](reports/selfplay_rounds.csv) and
+[`reports/selfplay_matrix.csv`](reports/selfplay_matrix.csv), with the fields in
+[`reports/selfplay_fields.json`](reports/selfplay_fields.json) and the fitted risk in
+[`reports/forcing_risk.csv`](reports/forcing_risk.csv).
+
+### Known limitations
+
+- **The batter only plays shots they already have.** Reweighting the simulated deliveries can
+  make a shot more or less common but can't invent one, so a batter who never ramps can't learn
+  to.
+- **The risk is linear and capped.** It is fitted from batters' games moving between phases of
+  the innings, which is not the same as a batter deliberately going after a gap. In Tests the
+  extra risk from attacking comes out at zero, so a Test batter's intent is held back only by
+  the cap and by the shots it makes more likely.
+- **The batter sees the field coarsely**: fielder counts by sector, not exact positions.
+- **It inherits the simulator**, like everything above. Four rounds is also a short run:
+  exploitability was still falling at the end in T20s and ODIs.
 
 ## The deliveries table
 
@@ -476,6 +591,8 @@ uv run python scripts/optimize_fields.py
 uv run python scripts/build_captain_data.py
 uv run python scripts/train_captain.py
 uv run python scripts/evaluate_captain.py
+uv run python scripts/train_selfplay.py
+uv run python scripts/evaluate_selfplay.py
 uv run python scripts/make_figures.py
 ```
 
@@ -485,7 +602,9 @@ to browse runs). The checkpoint is written to `data/models/shot_model.pt`.
 Calibrating the simulator takes about 8 minutes and optimising all 76 field scenarios about 16.
 Building the captain's delivery banks and running a search for each of its 1,024 batter contexts
 takes about an hour and a half. Training the captain takes about two hours, and judging it a few
-minutes.
+minutes. Four rounds of self-play take about three hours, and training a best-response batter
+against every field takes another hour. `scripts/build_captain_data.py --risk-only` refits just
+the batter's forcing risk.
 
 The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
 `--source kaggle` or `--source cricsheet` fetches one source only.
@@ -510,10 +629,12 @@ src/virtual_captain/
   models/               bowler and venue context, feature encoding, shot model, baselines
   sim/                  fielding physics, simulator and its calibration
   optim/                wicket values, analyst fields, CMA-ES search, sensitivity
-  rl/                   the captain's data, the over-by-over environment and its evaluation
+  rl/                   the captain's data, the over-by-over environment and its evaluation,
+                        the adaptive batter, the two-player game and self-play
   viz/                  field drawing, wagon wheels and scoring-zone roses
 notebooks/              exploration
-reports/                coverage, model, simulator, optimiser and captain results, figures
+reports/                coverage, model, simulator, optimiser, captain and self-play
+                        results, figures
 tests/
 ```
 
