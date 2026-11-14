@@ -16,6 +16,7 @@ import numpy as np
 import optuna
 import polars as pl
 
+from virtual_captain.field.geometry import BOUNDARY_RADIUS, PITCH_HALF
 from virtual_captain.field.positions import DEEP, POSITIONS, field_xy, with_keeper_and_bowler, xy
 from virtual_captain.field.rules import repair
 from virtual_captain.field.templates import KEYS, TEMPLATES
@@ -24,7 +25,8 @@ from virtual_captain.sim import physics
 from virtual_captain.sim.engine import Shots, simulate
 from virtual_captain.sim.params import CALIBRATED, SITUATIONS, SimParams
 
-RATES = ["dot", "one", "two_three", "four", "six", "caught"]
+RATES = ["dot", "one", "two_three", "four", "six", "caught_edge", "caught_close", "caught_far"]
+CLOSE_CATCH = 30.0  # metres from the striker
 N_SECTORS = 8
 RATE_FLOOR = 0.01  # relative errors on very rare outcomes are measured against at least this
 
@@ -106,6 +108,9 @@ FORMATS = ["T20", "ODI", "TEST"]
 
 def real_rates(rows: pl.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     caught = pl.col("striker_out") & pl.col("wicket_type").is_in(["caught", "caught and bowled"])
+    from_striker = (pl.col("x_m").pow(2) + (pl.col("y_m") + PITCH_HALF).pow(2)).sqrt()
+    close = from_striker.fill_null(0.0) < CLOSE_CATCH
+    behind = pl.col("y_m").fill_null(0.0) < -PITCH_HALF  # keeper, slips, gully, leg slip
     g = (
         rows.group_by("group")
         .agg(
@@ -114,7 +119,9 @@ def real_rates(rows: pl.DataFrame) -> tuple[np.ndarray, np.ndarray]:
             pl.col("runs_off_bat").is_in([2, 3]).mean().alias("two_three"),
             pl.col("is_four").mean().alias("four"),
             pl.col("is_six").mean().alias("six"),
-            caught.mean().alias("caught"),
+            (caught & close & behind).mean().alias("caught_edge"),
+            (caught & close & ~behind).mean().alias("caught_close"),
+            (caught & ~close).mean().alias("caught_far"),
         )
         .sort("group")
     )
@@ -144,13 +151,19 @@ def sim_rates(cal: CalibrationSet, params: SimParams) -> tuple[np.ndarray, np.nd
         situation=situation_codes(cal.rows),
     )
     runs, kind = result.runs, result.kind
+    ex = -np.sin(cal.shots.theta) * cal.shots.dist * BOUNDARY_RADIUS
+    ey = -np.cos(cal.shots.theta) * cal.shots.dist * BOUNDARY_RADIUS
+    close = np.hypot(ex, ey + PITCH_HALF) < CLOSE_CATCH
+    behind = ey < -PITCH_HALF
     columns = [
         (runs == 0) & ~result.wicket,
         runs == 1,
         (runs == 2) | (runs == 3),
         kind == physics.FOUR,
         kind == physics.SIX,
-        kind == physics.CAUGHT,
+        (kind == physics.CAUGHT) & close & behind,
+        (kind == physics.CAUGHT) & close & ~behind,
+        (kind == physics.CAUGHT) & ~close,
     ]
     counts = np.maximum(np.bincount(group, minlength=len(KEYS)), 1)
     rates = np.stack(
@@ -262,6 +275,8 @@ def report(cal: CalibrationSet, params: SimParams) -> pl.DataFrame:
             row[f"sim_{r}"] = sim[g, i]
         real_rpb = cal.rows.filter(pl.col("group") == g)["runs_off_bat"].mean()
         row["real_runs_per_ball"] = real_rpb
+        for side in ("real", "sim"):
+            row[f"{side}_caught"] = sum(row[f"{side}_caught_{z}"] for z in ("edge", "close", "far"))
         out.append(row)
     df = pl.DataFrame(out)
     group = cal.rows["group"].to_numpy()
