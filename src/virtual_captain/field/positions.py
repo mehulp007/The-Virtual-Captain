@@ -14,12 +14,14 @@ from virtual_captain.field.geometry import BOUNDARY_RADIUS
 DEEP = 64.0  # boundary riders stand a few metres in from a 68 m rope
 
 POSITIONS: dict[str, tuple[float, float]] = {
-    # close catchers
-    "first_slip": (354, 27),
-    "second_slip": (349, 26),
-    "third_slip": (343, 25.5),
-    "gully": (328, 24),
-    "leg_slip": (8, 26),
+    # close catchers. The slip cordon and leg slip sit where Cricinfo's wagon wheel plots the
+    # catches taken there (it draws edges closer to the bat than they really carry), so the
+    # simulated edges land where these fielders stand.
+    "first_slip": (344.1, 18.2),
+    "second_slip": (334.8, 18.8),
+    "third_slip": (326.7, 19.1),
+    "gully": (312.9, 19.1),
+    "leg_slip": (15.9, 18.2),
     "short_leg": (30, 8),
     "silly_point": (330, 8),
     "silly_mid_off": (210, 7),
@@ -53,7 +55,7 @@ POSITIONS: dict[str, tuple[float, float]] = {
 
 # Not part of the nine: the keeper stands back to pace and up to the stumps for spin,
 # and the bowler finishes their follow-through a couple of metres down the pitch.
-KEEPER_BACK = (0, 25.0)
+KEEPER_BACK = (353.3, 17.1)  # where keepers' catches off pace are plotted
 KEEPER_UP = (0, 11.5)
 BOWLER = (180, 13.0)
 

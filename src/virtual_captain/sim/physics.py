@@ -32,6 +32,9 @@ _CATCH_MAX = PARAM_INDEX["catch_max"]
 _CATCH_TAU = PARAM_INDEX["catch_tau"]
 _DECEL = PARAM_INDEX["decel"]
 _GROUND_CARRY = PARAM_INDEX["ground_carry"]
+_EDGE_REACH = PARAM_INDEX["edge_reach"]
+_EDGE_TIME = PARAM_INDEX["edge_time"]
+_HANG_EXP = PARAM_INDEX["hang_exp"]
 _HANG_FACTOR = PARAM_INDEX["hang_factor"]
 _HANG_MIN = PARAM_INDEX["hang_min"]
 _KEEPER_REACH = PARAM_INDEX["keeper_reach"]
@@ -47,6 +50,7 @@ _THROW_SPEED = PARAM_INDEX["throw_speed"]
 _TURN = PARAM_INDEX["turn"]
 
 G = 9.81
+EDGE_RANGE = 30.0  # metres from the striker
 STEP = 1.0  # metres between checks along a ground ball's path
 
 
@@ -116,12 +120,22 @@ def resolve(
     if in_air:
         if length >= to_rope:
             return 6, SIX
-        hang = p[_HANG_FACTOR] * math.sqrt(2.0 * length / G) + p[_HANG_MIN]
+        edge = ey < sy and length < EDGE_RANGE
         best_margin = -1e9
-        for j in range(field.shape[0]):
-            reach = p[_KEEPER_REACH] if j == KEEPER else p[_REACH_AIR]
-            margin = hang - _fielder_time(field[j, 0], field[j, 1], ex, ey, reach, p)
-            best_margin = max(best_margin, margin)
+        if edge:
+            # no time to move: catchable only by a fielder already standing there, who then
+            # holds it at the usual rate for a catch that comes straight to them
+            hang = p[_EDGE_TIME]
+            for j in range(field.shape[0]):
+                reach = max(p[_EDGE_REACH], p[_KEEPER_REACH] if j == KEEPER else 0.0)
+                if math.hypot(field[j, 0] - ex, field[j, 1] - ey) <= reach:
+                    best_margin = 10.0
+        else:
+            hang = p[_HANG_FACTOR] * (length / 30.0) ** p[_HANG_EXP] + p[_HANG_MIN]
+            for j in range(field.shape[0]):
+                reach = p[_KEEPER_REACH] if j == KEEPER else p[_REACH_AIR]
+                margin = hang - _fielder_time(field[j, 0], field[j, 1], ex, ey, reach, p)
+                best_margin = max(best_margin, margin)
         if best_margin >= 0.0:
             p_catch = p[_CATCH_MAX] * (1.0 - math.exp(-(best_margin + 0.15) / p[_CATCH_TAU]))
             if u_catch < p_catch:

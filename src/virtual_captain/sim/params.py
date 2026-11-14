@@ -39,8 +39,16 @@ class SimParams:
     start_odi_death: float = -0.3
     start_test_new_ball: float = 0.4
     start_test_old_ball: float = 0.4
-    hang_factor: float = 1.0  # x the flight time of a 45-degree hit to the same distance
-    hang_min: float = 0.6  # s, extra air time for top-edges and skiers
+    # s, time in the air: hang_factor x (distance / 30 m) ^ hang_exp + hang_min. The exponent is
+    # fixed at 0.5, as for a projectile (flight time ~ sqrt(range)); the data alone can't pin it.
+    hang_factor: float = 2.0
+    hang_exp: float = 0.5
+    hang_min: float = 0.15
+    # Edges: anything in the air that finishes behind the bat within EDGE_RANGE of the striker.
+    # They arrive too fast for anyone to move, so only a fielder already within edge_reach of
+    # where the edge is plotted can take it (the reach also absorbs plotting error).
+    edge_time: float = 0.5
+    edge_reach: float = 2.5
     catch_max: float = 0.88  # chance of holding a straightforward catch
     catch_tau: float = 0.4  # s, how quickly catches get easier with more time
     misfield: float = 0.04  # chance a stop is fumbled for an extra run
@@ -114,7 +122,8 @@ CALIBRATED = {
     "start_odi_death": (-2.0, 1.5),
     "start_test_new_ball": (-2.0, 1.5),
     "start_test_old_ball": (-2.0, 1.5),
-    "hang_factor": (0.6, 2.0),
+    "hang_factor": (0.5, 4.0),
+    "edge_reach": (0.5, 6.0),
     "catch_max": (0.6, 1.0),
     "misfield": (0.0, 0.15),
     "air_extra": (0.0, 0.3),
