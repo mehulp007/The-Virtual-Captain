@@ -18,7 +18,13 @@ import numpy as np  # noqa: E402
 import polars as pl  # noqa: E402
 
 from virtual_captain.models import encoding as enc  # noqa: E402
-from virtual_captain.paths import DATA_DIR, FIGURES_DIR, PROCESSED_DIR, REPORTS_DIR  # noqa: E402
+from virtual_captain.paths import (  # noqa: E402
+    DATA_DIR,
+    FIGURES_DIR,
+    PROCESSED_DIR,
+    REPORTS_DIR,
+    ROOT,
+)
 from virtual_captain.viz import style  # noqa: E402
 from virtual_captain.viz.field_plot import draw_field  # noqa: E402
 from virtual_captain.viz.wagon import (  # noqa: E402
@@ -407,6 +413,189 @@ def optimiser_gains(results: pl.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+# The RL captain ---------------------------------------------------------------------------
+CAPTAIN_SHOWCASE = "SA Yadav | T20 middle | spin"
+
+
+def _field9(points: list[dict]) -> np.ndarray:
+    return np.array([[p["x"], p["y"]] for p in points])
+
+
+def captain_learning(history: pl.DataFrame, out: Path, search_level: float | None = None) -> None:
+    """How the captain's fields compare with its starting field as training goes on."""
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
+    steps = history["steps"].to_numpy() / 1e6
+    lines = [
+        ("probe_train_vs_all_batters_field", "150 batters it trains on", style.SERIES[0]),
+        ("probe_unseen_vs_all_batters_field", "150 batters it never sees", style.SERIES[1]),
+    ]
+    for col, label, colour in lines:
+        if col in history.columns:
+            ax.plot(steps, history[col].to_numpy(), lw=2, color=colour, label=label)
+    ax.axhline(0, color=style.AXIS, lw=1)
+    ax.text(
+        steps.max(), 0, "field optimised for all batters (the start) ", va="bottom", ha="right",
+        fontsize=8,
+        color=style.INK_SECONDARY,
+    )  # fmt: skip
+    if search_level is not None:
+        ax.axhline(search_level, color=style.INK_SECONDARY, lw=1, ls="--")
+        ax.text(
+            0, search_level, " a CMA-ES search run for each batter, on average", va="top",
+            fontsize=8, color=style.INK_SECONDARY,
+        )  # fmt: skip
+    ax.set_xlabel("training steps (millions of balls)")
+    ax.set_ylabel("cost per ball vs the start (runs)")
+    ax.yaxis.grid(True)
+    ax.set_axisbelow(True)
+    ax.legend(loc="upper right", fontsize=8, frameon=False)
+    ax.set_title(
+        "The captain's fields as it trains (below zero: better than where it started)",
+        loc="left",
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def captain_fields_figure(fields: dict, static: pl.DataFrame, out: Path) -> None:
+    """For three batters: the all-batters field, a dedicated search and the captain's field."""
+    kinds = [
+        ("all_batters", "all-batters field", style.SERIES[0]),
+        ("searched", "dedicated search", style.SERIES[3]),
+        ("captain", "RL captain", style.SERIES[1]),
+    ]
+    chosen = list(fields)
+    fig, axes = plt.subplots(len(chosen), 3, figsize=(11.5, 3.9 * len(chosen)))
+    axes = np.atleast_2d(axes)
+    for row, scenario in enumerate(chosen):
+        who, situation, bowling = scenario.split(" | ")
+        fmt, phase = situation.split()
+        r = static.filter(
+            (pl.col("batter") == who)
+            & (pl.col("format") == fmt)
+            & (pl.col("phase") == phase)
+            & (pl.col("bowling") == bowling)
+        ).row(0, named=True)
+        for col, (kind, label, colour) in enumerate(kinds):
+            ax = axes[row, col]
+            draw_field(ax)
+            f9 = _field9(fields[scenario][kind])
+            _draw_fielders(ax, _keeper_and_bowler(f9, bowling), colour)
+            runs = r[f"{kind}_runs_per_ball"]
+            wkts = r[f"{kind}_wickets_per_ball"] * 100
+            ax.set_title(f"{label}: {runs:.2f} runs, {wkts:.2f}% wkts per ball", fontsize=9)
+        axes[row, 0].text(
+            -95, 0, scenario.replace(" | ", "\n"), rotation=90, ha="center", va="center",
+            fontsize=9, color=style.INK_SECONDARY,
+        )  # fmt: skip
+    fig.suptitle(
+        "Fields for three batters, judged on simulated deliveries nothing trained on", fontsize=11
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def captain_over_figure(over: dict, out: Path) -> None:
+    """One T20 death over: the captain's field for every ball, as the strike changes."""
+    balls = over["balls"]
+    names = sorted({b["striker"] for b in balls})
+    colours = {n: style.SERIES[i] for i, n in enumerate(names)}
+    cols = 3
+    rows = int(np.ceil(len(balls) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(11.5, 4.0 * rows))
+    for ax, b in zip(axes.ravel(), balls, strict=False):
+        draw_field(ax, labels=False)
+        _draw_fielders(ax, _keeper_and_bowler(_field9(b["field"]), "pace"), colours[b["striker"]])
+        result = "wicket" if b["wicket"] else f"{b['runs']} run{'s' if b['runs'] != 1 else ''}"
+        ax.set_title(
+            f"ball {b['ball']}: {b['striker']} on strike\n"
+            f"wicket worth {b['wicket_value']:.1f} runs, result: {result}",
+            fontsize=9,
+        )
+    for ax in axes.ravel()[len(balls) :]:
+        ax.axis("off")
+    fig.suptitle(
+        "One T20 death over, field reset for every ball (colour: batter on strike)", fontsize=11
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def captain_vs_search(static: pl.DataFrame, out: Path) -> None:
+    """Every batter context: the captain's cost per ball minus the dedicated search's."""
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.8), sharey=True)
+    rng = np.random.default_rng(0)
+    for ax, fmt in zip(axes, ("T20", "ODI", "TEST"), strict=True):
+        for i, unseen in enumerate((False, True)):
+            d = static.filter((pl.col("format") == fmt) & (pl.col("unseen") == unseen))
+            y = d["captain_vs_searched"].to_numpy()
+            x = i + rng.uniform(-0.25, 0.25, len(y))
+            ax.scatter(x, y, s=9, alpha=0.6, color=style.SERIES[i], lw=0)
+            if len(y):
+                ax.hlines(np.mean(y), i - 0.32, i + 0.32, color=style.INK, lw=2)
+        ax.axhline(0, color=style.AXIS, lw=1)
+        ax.set_xticks([0, 1], ["trained on", "never seen"])
+        ax.set_title(FORMAT_NAMES[fmt], loc="left")
+        ax.yaxis.grid(True)
+        ax.set_axisbelow(True)
+    axes[0].set_ylabel("captain minus search, cost per ball (runs)")
+    fig.suptitle(
+        "The captain against a dedicated search for every batter context "
+        "(below zero: the captain is better; bars are means)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def captain_training_gif(checkpoints: Path, out: Path, scenario: str = CAPTAIN_SHOWCASE) -> None:
+    """The captain's field for one batter at every training checkpoint."""
+    from matplotlib.animation import FuncAnimation, PillowWriter
+    from stable_baselines3 import PPO
+
+    from virtual_captain.rl.data import CaptainData
+    from virtual_captain.rl.evaluate import captain_fields, judge_fields
+
+    paths = sorted(checkpoints.glob("step_*.zip"))
+    if not paths:
+        print(f"no checkpoints in {checkpoints}, skipping the training animation")
+        return
+    data = CaptainData.load()
+    who, situation, bowling = scenario.split(" | ")
+    fmt, phase = situation.split()
+    c = np.array([data.context_of(who, fmt, phase, bowling)])
+    search = judge_fields(data, c, data.searched_fields[c])
+    frames = []
+    for path in paths:
+        model = PPO.load(path, device="cpu")
+        f = captain_fields(model, data, c)
+        judged = judge_fields(data, c, f)
+        gap = float((judged.cost - search.cost).mean())
+        frames.append((int(path.stem.split("_")[1]), f[0], float(judged.runs.mean()), gap))
+    frames += [frames[-1]] * 6  # hold the last frame
+
+    fig, ax = plt.subplots(figsize=(5.6, 6.0))
+
+    def draw(i):
+        ax.clear()
+        steps, field, runs, gap = frames[i]
+        draw_field(ax)
+        _draw_fielders(ax, _keeper_and_bowler(field, bowling), style.SERIES[1])
+        ax.set_title(
+            f"{who}, {fmt} {phase} overs, {bowling}\n"
+            f"after {steps / 1e6:.1f}M balls: {runs:.3f} runs per ball, {gap:+.3f} vs search",
+            fontsize=9,
+        )
+
+    anim = FuncAnimation(fig, draw, frames=len(frames))
+    anim.save(out, writer=PillowWriter(fps=3))
+    plt.close(fig)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, default=PROCESSED_DIR / "deliveries.parquet")
@@ -451,6 +640,18 @@ def main(argv: list[str] | None = None) -> int:
     vmap = REPORTS_DIR / "value_map.json"
     if vmap.exists():
         value_map_figure(json.loads(vmap.read_text()), args.out / "value_map.png")
+    captain_csv = REPORTS_DIR / "captain_static.csv"
+    if captain_csv.exists():
+        static = pl.read_csv(captain_csv)
+        captain = json.loads((REPORTS_DIR / "captain_fields.json").read_text())
+        history = pl.read_csv(REPORTS_DIR / "captain_training.csv")
+        search_level = float((static["searched_cost"] - static["all_batters_cost"]).mean())
+        captain_learning(history, args.out / "captain_learning.png", search_level)
+        captain_fields_figure(captain["showcase"], static, args.out / "captain_fields.png")
+        if captain["over"]:
+            captain_over_figure(captain["over"], args.out / "captain_over.png")
+        captain_vs_search(static, args.out / "captain_vs_search.png")
+        captain_training_gif(ROOT / "checkpoints" / "captain", args.out / "captain_training.gif")
     print(f"figures written to {args.out}")
     return 0
 
