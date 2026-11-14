@@ -5,7 +5,8 @@ to the usual ones and what each costs; move the fielders yourself and watch the 
 
   uv run streamlit run src/virtual_captain/app/streamlit_app.py
 
-Reads data/app/bundle.npz (scripts/build_app_bundle.py), or the file named by VC_BUNDLE.
+Reads data/app/bundle.npz (scripts/build_app_bundle.py), downloading it from the latest
+GitHub release if it isn't there, or the file named by VC_BUNDLE.
 """
 
 import os
@@ -15,7 +16,7 @@ import numpy as np
 import streamlit as st
 
 from virtual_captain.app import plots
-from virtual_captain.app.bundle import BUNDLE, Bundle
+from virtual_captain.app.bundle import BUNDLE, Bundle, fetch
 from virtual_captain.app.engine import (
     ALL_BATTERS,
     CAPTAIN,
@@ -59,9 +60,10 @@ PICK_UP = 4.0  # metres: a click this close to a fielder picks them up
 st.set_page_config(page_title="The Virtual Captain", page_icon="🏏", layout="wide")
 
 
-@st.cache_resource(show_spinner="Loading the simulator...")
+@st.cache_resource(show_spinner="Loading the data and the simulator (first visit only)...")
 def engine() -> Engine:
-    e = Engine(Bundle.load(Path(os.environ.get("VC_BUNDLE", BUNDLE))))
+    path = Path(os.environ["VC_BUNDLE"]) if "VC_BUNDLE" in os.environ else fetch(BUNDLE)
+    e = Engine(Bundle.load(path))
     s = e.typical(0)
     e.score(s, e.fields(s))  # compile the simulator before anyone waits on it
     return e
@@ -105,12 +107,12 @@ def table(summary: dict, vs: dict, names: list[str]) -> list[dict]:
         rows.append(
             {
                 "Field": k,
-                "Runs an over": round(6 * m["runs_per_ball"], 2),
+                "Runs an over": f"{6 * m['runs_per_ball']:.2f}",
                 "Wicket": every(m["wickets_per_ball"]),
                 "Fours": f"{m['fours']:.1%}",
                 "Sixes": f"{m['sixes']:.1%}",
                 "Dot balls": f"{m['dots']:.0%}",
-                "Cost a ball": round(m["cost_per_ball"], 3),
+                "Cost a ball": f"{m['cost_per_ball']:.3f}",
                 "vs RL captain": "" if k == CAPTAIN else f"{d:+.3f} ± {ci:.3f}",
             }
         )
