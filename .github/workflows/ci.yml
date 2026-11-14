@@ -16,7 +16,7 @@ jobs:
           enable-cache: true
 
       - name: Install
-        run: uv sync --locked --extra cpu
+        run: uv sync --locked --extra cpu --extra app
 
       - name: Lint
         run: |
