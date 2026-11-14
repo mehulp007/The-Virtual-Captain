@@ -29,6 +29,8 @@ dependencies = [
 # Pick one: `uv sync --extra cu128` on a machine with an NVIDIA GPU, `--extra cpu` otherwise.
 cpu = ["torch>=2.5", "stable-baselines3>=2.4"]
 cu128 = ["torch>=2.5", "stable-baselines3>=2.4"]
+# The demo app: `uv sync --extra app` alongside one of the above.
+app = ["streamlit>=1.40", "plotly>=5.24"]
 
 [dependency-groups]
 dev = [
@@ -37,6 +39,7 @@ dev = [
     "pre-commit>=3.7",
     "ipykernel>=7.4.0",
     "nbconvert>=7.17.2",
+    "huggingface-hub>=0.30",
 ]
 
 [build-system]
