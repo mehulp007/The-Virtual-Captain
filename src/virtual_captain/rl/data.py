@@ -9,7 +9,8 @@ one. Each context carries:
   a searched field                    what a dedicated CMA-ES search finds for this context
 
 Plus, for each of the 16 (format, phase, bowling) keys: the conventional field and the field
-optimised for all batters together, and the real match states overs are started from.
+optimised for all batters together, and the real match states overs are started from; and by
+format, the risk a batter takes by forcing their game (see rl.batter).
 """
 
 from dataclasses import dataclass
@@ -110,6 +111,7 @@ class CaptainData:
     wicket_states: pl.DataFrame  # optim.value.wicket_value_states
     learn: Bank
     judge: Bank
+    forcing_risk: pl.DataFrame | None = None  # rl.batter.fit_forcing_risk, by format
 
     def save(self, folder: Path = CAPTAIN_DIR) -> None:
         folder.mkdir(parents=True, exist_ok=True)
@@ -118,6 +120,8 @@ class CaptainData:
         self.starts.write_parquet(folder / "starts.parquet")
         self.wicket_states.write_parquet(folder / "wicket_states.parquet")
         np.savez(folder / "banks.npz", **self.learn.arrays("learn"), **self.judge.arrays("judge"))
+        if self.forcing_risk is not None:
+            self.forcing_risk.write_parquet(folder / "forcing_risk.parquet")
 
     @classmethod
     def load(cls, folder: Path = CAPTAIN_DIR) -> "CaptainData":
@@ -130,6 +134,11 @@ class CaptainData:
             wicket_states=pl.read_parquet(folder / "wicket_states.parquet"),
             learn=learn,
             judge=judge,
+            forcing_risk=(
+                pl.read_parquet(folder / "forcing_risk.parquet")
+                if (folder / "forcing_risk.parquet").exists()
+                else None
+            ),
         )
 
     # handy arrays -------------------------------------------------------------------------

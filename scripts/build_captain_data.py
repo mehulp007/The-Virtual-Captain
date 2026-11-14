@@ -10,9 +10,13 @@ scripts/optimize_fields.py, run on the context's learning bank and started from 
 optimised there for all batters in the situation, which is also where the RL captain starts.
 The all-batters contexts reuse those fields.
 
+Also fits the forcing risk for the adaptive batter (rl.batter.fit_forcing_risk) and writes
+reports/pattern_shifts.csv and reports/forcing_risk.csv.
+
 Usage:
   uv run python scripts/build_captain_data.py
   uv run python scripts/build_captain_data.py --limit 20 --generations 10   # a quick look
+  uv run python scripts/build_captain_data.py --risk-only   # refit the forcing risk only
 """
 
 import argparse
@@ -31,6 +35,7 @@ from virtual_captain.optim.heuristics import analyst_field
 from virtual_captain.optim.objective import Scenario
 from virtual_captain.optim.value import as_dict, wicket_value_states, wicket_values
 from virtual_captain.paths import DATA_DIR, PROCESSED_DIR, REPORTS_DIR
+from virtual_captain.rl.batter import fit_forcing_risk, pattern_shifts
 from virtual_captain.rl.data import Bank, CaptainData, profile
 from virtual_captain.sim.engine import Shots
 
@@ -141,6 +146,25 @@ def search_again(args) -> int:
     return 0
 
 
+def forcing_risk(lf: pl.LazyFrame) -> pl.DataFrame:
+    shifts = pattern_shifts(lf)
+    shifts.write_csv(REPORTS_DIR / "pattern_shifts.csv", float_precision=5)
+    risk = fit_forcing_risk(shifts)
+    risk.write_csv(REPORTS_DIR / "forcing_risk.csv", float_precision=5)
+    for r in risk.iter_rows(named=True):
+        print(f"{r['format']}: {r['fitted']:.4f} +/- {r['ci']:.4f} extra dismissals per ball "
+              f"per nat of pattern shift ({r['cases']} cases)")  # fmt: skip
+    return risk
+
+
+def risk_again() -> int:
+    """Refit only the forcing risk."""
+    data = CaptainData.load()
+    data.forcing_risk = forcing_risk(pl.scan_parquet(PROCESSED_DIR / "deliveries.parquet"))
+    data.save()
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--min-balls", type=int, default=800)
@@ -151,9 +175,12 @@ def main(argv=None) -> int:
     p.add_argument("--population", type=int, default=16)
     p.add_argument("--limit", type=int, default=None, help="only the first N batter contexts")
     p.add_argument("--search-only", action="store_true", help="redo the searches, keep the banks")
+    p.add_argument("--risk-only", action="store_true", help="refit the forcing risk only")
     args = p.parse_args(argv)
     if args.search_only:
         return search_again(args)
+    if args.risk_only:
+        return risk_again()
 
     t_all = time.perf_counter()
     model = ShotModel.load(DATA_DIR / "models" / "shot_model.pt")
@@ -264,6 +291,7 @@ def main(argv=None) -> int:
         wicket_states=states,
         learn=Bank.from_shots(learn),
         judge=Bank.from_shots(judge),
+        forcing_risk=forcing_risk(lf),
     )
     data.save()
     print(f"saved {len(specs)} contexts in {(time.perf_counter() - t_all) / 60:.1f} min")
