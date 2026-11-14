@@ -5,6 +5,7 @@ from gymnasium.utils.env_checker import check_env
 
 from virtual_captain.field import rules
 from virtual_captain.field.templates import KEYS, template
+from virtual_captain.rl import evaluate as ev
 from virtual_captain.rl.data import Bank, CaptainData, profile
 from virtual_captain.rl.env import (
     N_OBS,
@@ -212,3 +213,22 @@ def test_relative_reward_is_the_cost_saved_on_the_same_deliveries(data):
     r_abs, _, _ = absolute.step(absolute.fields_from_actions(actions))
     r_start, _, _ = start.step(start.fields_from_actions(np.zeros((50, 18))))
     np.testing.assert_allclose(r_rel, r_abs - r_start, atol=1e-9)
+
+
+def test_judging_a_field_against_itself_is_exactly_even(data):
+    ids = np.flatnonzero(~data.contexts["pooled"].to_numpy())
+    fields = data.searched_fields[ids]
+    a = ev.judge_fields(data, ids, fields, n=300)
+    b = ev.judge_fields(data, ids, fields.copy(), n=300)
+    diff, half = ev.paired(a, b)
+    assert np.all(diff == 0) and np.all(half == 0)
+
+
+def test_every_setter_plays_the_same_overs(data):
+    played = {
+        name: ev.play(s, data, "T20", 40, seed=3, shots_per_ball=16)
+        for name, s in (("pooled", ev.optimised_for_all), ("again", ev.optimised_for_all))
+    }
+    gap = ev.compare(played, "pooled")
+    assert gap["again"] == (0.0, 0.0)
+    assert np.all(played["pooled"].balls == 6)
