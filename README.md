@@ -323,8 +323,9 @@ to the data for each limited-overs format, and a wicket's value is the resources
 that point. In a T20 with 19 overs left, the first wicket is worth about 11 runs and the fifth
 about 22. In Tests the value comes directly from the data for each wicket.
 
-It learns from 305 batters with at least 800 tracked balls in a situation before 2025 (1,024
-batter contexts). Another 43 batters, about one in seven, are kept out of training entirely.
+There are 305 batters with at least 800 tracked balls in a situation before 2025 (1,024 batter
+contexts). It learns from 262 of them; the other 43, about one in seven, are kept out of
+training entirely.
 Every context has its own bank of simulated deliveries to learn from and a separate bank to be
 judged on. Training ran for 20 million balls in 256 environments simulated side by side, T20
 only for the first 4 million and then all three formats. It took about two hours on a laptop CPU
@@ -352,7 +353,7 @@ better in 218 and significantly worse in 101. The searches get more out of a sin
 Tests, where a wicket is worth up to 45 runs and each search can fit its own deliveries closely.
 Against batters it has never seen it is ahead in all three formats: a search over 12,000
 simulated deliveries partly fits that sample's noise, while the policy learns patterns shared
-across 305 batters.
+across 262 batters.
 
 ![Captain vs dedicated search, every context](reports/figures/captain_vs_search.png)
 
