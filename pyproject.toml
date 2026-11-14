@@ -22,6 +22,7 @@ dependencies = [
     "cmaes>=0.11",
     "gymnasium>=1.0",
     "scipy>=1.13",
+    "pettingzoo>=1.24",
 ]
 
 [project.optional-dependencies]
