@@ -20,12 +20,14 @@ dependencies = [
     "numba>=0.60",
     "optuna>=4.0",
     "cmaes>=0.11",
+    "gymnasium>=1.0",
+    "scipy>=1.13",
 ]
 
 [project.optional-dependencies]
 # Pick one: `uv sync --extra cu128` on a machine with an NVIDIA GPU, `--extra cpu` otherwise.
-cpu = ["torch>=2.5"]
-cu128 = ["torch>=2.5"]
+cpu = ["torch>=2.5", "stable-baselines3>=2.4"]
+cu128 = ["torch>=2.5", "stable-baselines3>=2.4"]
 
 [dependency-groups]
 dev = [

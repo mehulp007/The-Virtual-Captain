@@ -102,3 +102,15 @@ def test_best_moves_reports_intervals():
     assert moves.height > 0
     assert (moves["runs_ci"] >= 0).all()
     assert moves["cost_change"].is_sorted()
+
+
+def test_resource_curve_fit_recovers_known_values():
+    from virtual_captain.optim.value import _fit_resources, _resource_curve
+
+    f_true = np.array([1.0, 0.93, 0.85, 0.75, 0.64, 0.52, 0.4, 0.28, 0.17, 0.08])
+    o = np.repeat(np.arange(1, 51), 10).astype(float)
+    w = np.tile(np.arange(10), 50)
+    r = _resource_curve(o, w, 280.0, 9.0, f_true)
+    fitted = _fit_resources(pl.DataFrame({"overs_left": o, "wickets_before": w, "r": r, "n": 100}))
+    np.testing.assert_allclose(_resource_curve(o, w, *fitted), r, rtol=1e-3, atol=0.05)
+    assert np.all(np.diff(fitted[2]) < 0), "fewer wickets in hand, fewer runs to come"
