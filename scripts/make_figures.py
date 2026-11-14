@@ -596,6 +596,139 @@ def captain_training_gif(checkpoints: Path, out: Path, scenario: str = CAPTAIN_S
     plt.close(fig)
 
 
+# Self-play -------------------------------------------------------------------------------
+def selfplay_exploitability(table: pl.DataFrame, out: Path) -> None:
+    """What a best-response batter gains against each captain round, by format, with the two
+    fixed CMA-ES fields for reference."""
+    t = table.filter(pl.col("batters") == "train")
+    fig, axes = plt.subplots(1, 3, figsize=(11.5, 3.9))
+    for ax, fmt in zip(axes, ("T20", "ODI", "TEST"), strict=True):
+        d = t.filter(pl.col("format") == fmt)
+        cap = d.filter(pl.col("round").is_not_null()).sort("round")
+        x = cap["round"].to_numpy()
+        ax.errorbar(
+            x, cap["gain"].to_numpy(), yerr=cap["gain_ci"].to_numpy(), color=style.SERIES[1],
+            lw=2, marker="o", ms=5, capsize=0, label="RL captain",
+        )  # fmt: skip
+        for name, ls in (("all-batters field", "--"), ("searched field", ":")):
+            row = d.filter(pl.col("setter") == name)
+            if row.height:
+                ax.axhline(row["gain"][0], color=style.INK_SECONDARY, lw=1.2, ls=ls, label=name)
+        ax.set_xticks(x, ["start" if r == 0 else str(r) for r in x])
+        ax.set_xlabel("self-play round")
+        ax.set_title(FORMAT_NAMES[fmt], loc="left")
+        ax.set_ylim(bottom=0)
+        ax.yaxis.grid(True)
+        ax.set_axisbelow(True)
+    axes[0].set_ylabel("best-response batter's gain\n(cost per ball, runs)")
+    axes[0].legend(fontsize=8, frameon=False, loc="lower left")
+    fig.suptitle(
+        "How much a batter who knows the field can gain against it (lower: harder to exploit)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def _aim_wedges(ax, natural: list[float], batter: list[float], colour: str) -> None:
+    """Bars outside the rope: how much more of the batter's ground shots go into each 30-degree
+    sector against this field."""
+    from virtual_captain.data.coords import wagon_to_xy
+
+    gain = np.array(batter) - np.array(natural)
+    scale = 160.0  # metres of bar per unit of share
+    for i, g in enumerate(gain):
+        if g <= 0.002:
+            continue
+        a = np.linspace(30 * i + 2, 30 * i + 28, 12)
+        r0, r1 = 70.0, 70.0 + scale * g
+        x0, y0 = wagon_to_xy(a, r0 / 68.0)
+        x1, y1 = wagon_to_xy(a[::-1], r1 / 68.0)
+        ax.fill(np.r_[x0, x1], np.r_[y0, y1], color=colour, alpha=0.8, lw=0)
+
+
+def selfplay_fields_figure(fields: dict, out: Path) -> None:
+    """For three batters: the field optimised for all batters, the captain before and after
+    self-play, and where each field's best-response batter aims its extra shots."""
+    kinds = [
+        ("all_batters", "all-batters field", style.SERIES[0]),
+        ("before", "captain before self-play", style.SERIES[3]),
+        ("after", "captain after self-play", style.SERIES[1]),
+    ]
+    chosen = list(fields)
+    fig, axes = plt.subplots(len(chosen), 3, figsize=(11.5, 4.1 * len(chosen)))
+    axes = np.atleast_2d(axes)
+    for row, scenario in enumerate(chosen):
+        bowling = scenario.split(" | ")[2]
+        for col, (kind, label, colour) in enumerate(kinds):
+            ax = axes[row, col]
+            e = fields[scenario][kind]
+            draw_field(ax)
+            _aim_wedges(ax, e["aim"]["sector_natural"], e["aim"]["sector_batter"], style.SERIES[7])
+            _draw_fielders(ax, _keeper_and_bowler(_field9(e["field"]), bowling), colour)
+            lim = 92
+            ax.set_xlim(-lim, lim)
+            ax.set_ylim(-lim, lim)
+            ax.set_title(
+                f"{label}\n{e['cost_natural']:.3f} a ball natural, "
+                f"{e['cost_best_response']:.3f} against its best response",
+                fontsize=9,
+            )
+        axes[row, 0].text(
+            -112, 0, scenario.replace(" | ", "\n"), rotation=90, ha="center", va="center",
+            fontsize=9, color=style.INK_SECONDARY,
+        )  # fmt: skip
+    fig.suptitle(
+        "Fields before and after self-play. Red bars: where the batter who knows each field "
+        "sends more of its shots",
+        fontsize=11,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
+def selfplay_matrix_figure(matrix: pl.DataFrame, out: Path) -> None:
+    """Every field-setter against every batter's best response, by format: runs per ball the
+    batter gains over its natural game. Each format has its own colour range."""
+    from matplotlib.colors import LinearSegmentedColormap
+
+    cmap = LinearSegmentedColormap.from_list("gain", [style.SURFACE, style.SERIES[0]])
+    d = matrix.filter(pl.col("batter") != "natural")
+    setters = list(dict.fromkeys(d["setter"].to_list()))
+    batters = list(dict.fromkeys(d["batter"].to_list()))
+    short = [b.replace("best response to ", "") for b in batters]
+    fig, axes = plt.subplots(1, 3, figsize=(13.5, 0.6 * len(setters) + 2.4))
+    for k, (ax, fmt) in enumerate(zip(axes, ("T20", "ODI", "TEST"), strict=True)):
+        f = d.filter(pl.col("format") == fmt)
+        grid = np.array(
+            [[f.filter((pl.col("setter") == s) & (pl.col("batter") == b))["gain"][0]
+              for b in batters] for s in setters]
+        )  # fmt: skip
+        lo, hi = grid.min(), grid.max()
+        ax.imshow(grid, cmap=cmap, vmin=lo - 0.15 * (hi - lo), vmax=hi, aspect="auto")
+        for i in range(len(setters)):
+            for j in range(len(batters)):
+                ax.text(j, i, f"{grid[i, j]:.3f}", ha="center", va="center", fontsize=8,
+                        color=style.INK, fontweight="bold" if i == j else "normal")  # fmt: skip
+        ax.set_xticks(range(len(batters)), short, rotation=30, ha="right", fontsize=8)
+        ax.set_yticks(range(len(setters)), setters if k == 0 else [], fontsize=8)
+        ax.set_xlabel("batter trained to beat ...")
+        ax.set_title(FORMAT_NAMES[fmt], loc="left")
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+    axes[0].set_ylabel("field set by ...")
+    fig.suptitle(
+        "Runs per ball a best-response batter gains over its natural game "
+        "(bold: against the field it was trained on)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    fig.savefig(out)
+    plt.close(fig)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, default=PROCESSED_DIR / "deliveries.parquet")
@@ -652,6 +785,14 @@ def main(argv: list[str] | None = None) -> int:
             captain_over_figure(captain["over"], args.out / "captain_over.png")
         captain_vs_search(static, args.out / "captain_vs_search.png")
         captain_training_gif(ROOT / "checkpoints" / "captain", args.out / "captain_training.gif")
+    exploit_csv = REPORTS_DIR / "selfplay_exploitability.csv"
+    if exploit_csv.exists():
+        selfplay_exploitability(pl.read_csv(exploit_csv), args.out / "selfplay_exploitability.png")
+    if (REPORTS_DIR / "selfplay_fields.json").exists():
+        fields = json.loads((REPORTS_DIR / "selfplay_fields.json").read_text())
+        selfplay_fields_figure(fields, args.out / "selfplay_fields.png")
+        matrix = pl.read_csv(REPORTS_DIR / "selfplay_matrix.csv")
+        selfplay_matrix_figure(matrix, args.out / "selfplay_matrix.png")
     print(f"figures written to {args.out}")
     return 0
 
