@@ -221,7 +221,7 @@ with tab_edit:
     col_field, col_numbers = st.columns([3, 2])
     with col_field:
         hint = (
-            f"Click anywhere to move {plots._label(field[sel])}, or click another fielder."
+            f"Moving {plots._label(field[sel])}.<br>Click where they should stand."
             if sel is not None
             else "Click a fielder to pick them up."
         )
