@@ -289,10 +289,121 @@ where the value is mostly in runs, rest on firmer ground.
   their size depends on the simulator's assumptions, so the ranking is more reliable than the
   exact number of runs saved.
 - **Test fields undervalue catchers** (see above).
-- **One field per scenario.** The field is fixed for all the deliveries in a scenario; it doesn't
-  change ball by ball, react to the score or anticipate a batter changing their game.
+- **One field per scenario.** The search finds one field for all the deliveries in a scenario.
+  Setting it ball by ball is the RL captain's job, below.
 - The optimiser sometimes puts two fielders close together, which the simulator rewards but a
   captain might not.
+
+## The RL captain
+
+A search like the one above has to be rerun for every batter and every situation, and it never
+sees the match move. The RL captain is one policy, trained with PPO, that sets the field before
+every ball for whoever is on strike, in any format, and is expected to keep up with a dedicated
+search for each batter.
+
+**What it sees** before each ball (75 numbers): the format, pace or spin, the phase, wickets
+down, how far through the innings it is, the ball of the over, what a wicket is worth right now,
+and a 29-number profile of each batter at the crease: where their runs go by sector, how often
+they hit to the deep, in the air or for six, and how often they are bowled or lbw.
+
+**What it does:** it moves each of the nine fielders from the field optimised for all batters in
+that situation (18 numbers: a change of angle and distance for each). The result is repaired into
+a legal field, so the policy can't break the fielding restrictions. With no moves it sets the
+CMA-ES field from the section above, which makes that field its starting point.
+
+**What it is rewarded for:** the cost it saves against that starting field (runs minus wickets
+times their value) on the same 256 deliveries simulated from the striker's shot model. Scoring
+both fields on the same deliveries removes most of the luck from the reward. One of those
+deliveries is played for real: it decides the runs, whether the strike changes and whether a
+wicket falls, in which case a new batter comes in. An episode is an over in T20s and ODIs, and a
+four-over spell in Tests.
+
+**What a wicket is worth** moves with the match. A Duckworth–Lewis style resource curve is fitted
+to the data for each limited-overs format, and a wicket's value is the resources it takes away at
+that point. In a T20 with 19 overs left, the first wicket is worth about 11 runs and the fifth
+about 22. In Tests the value comes directly from the data for each wicket.
+
+It learns from 305 batters with at least 800 tracked balls in a situation before 2025 (1,024
+batter contexts). Another 43 batters, about one in seven, are kept out of training entirely.
+Every context has its own bank of simulated deliveries to learn from and a separate bank to be
+judged on. Training ran for 20 million balls in 256 environments simulated side by side, T20
+only for the first 4 million and then all three formats. It took about two hours on a laptop CPU
+and was logged to MLflow.
+
+![Learning curve](reports/figures/captain_learning.png)
+
+### Results
+
+The bar is the dedicated search: the CMA-ES search from the section above, rerun for every batter
+context on its learning bank and started from the same all-batters field as the captain.
+Everything below is judged on deliveries that neither the search nor the captain trained on.
+
+**One batter, one situation.** The captain sets a field for each batter context in its typical
+match state. Cost per ball, captain minus dedicated search, below zero meaning the captain is
+better:
+
+| | T20 | ODI | Test |
+|---|---:|---:|---:|
+| Batters it trained on | **−0.014** (beats it in 78%) | **−0.006** (63%) | +0.003 (53%) |
+| Batters it never saw | **−0.006** (60%) | **−0.008** (69%) | **−0.007** (59%) |
+
+Across all 1,024 contexts, one policy beats the dedicated searches in 61%. It is significantly
+better in 218 and significantly worse in 101. The searches get more out of a single context in
+Tests, where a wicket is worth up to 45 runs and each search can fit its own deliveries closely.
+Against batters it has never seen it is ahead in all three formats: a search over 12,000
+simulated deliveries partly fits that sample's noise, while the policy learns patterns shared
+across 305 batters.
+
+![Captain vs dedicated search, every context](reports/figures/captain_vs_search.png)
+
+**Overs as they unfold.** Whole overs (spells in Tests) from real match states with two batters
+at the crease. Strike changes, wickets fall, and the wicket's value moves with them. Every way of
+setting the field plays the same overs with the same random numbers. Cost per ball against
+switching to the dedicated field for whoever is on strike:
+
+| | Conventional field | All-batters field | Captain |
+|---|---:|---:|---:|
+| T20, batters it trained on | +0.157 | +0.005 | **−0.017** ± 0.001 |
+| T20, batters it never saw | +0.158 | +0.009 | **−0.013** ± 0.001 |
+| ODI, batters it trained on | +0.168 | +0.005 | **−0.007** ± 0.001 |
+| ODI, batters it never saw | +0.163 | +0.002 | **−0.006** ± 0.001 |
+| Test, batters it trained on | +0.196 | +0.008 | +0.001 ± 0.002 |
+| Test, batters it never saw | +0.199 | 0.000 | **−0.006** ± 0.002 |
+
+Over a T20 innings that is about 2 runs saved against switching between dedicated fields, and 2.7
+against one good field for everyone. Textbook fields cost around 0.16 runs per ball more than any
+optimised field, about 19 runs in a T20 innings.
+
+**Real deliveries from 2025–26.** The 20 batters from the field-setting study have 72 contexts
+with at least 150 balls in the held-out seasons. On those deliveries the captain's field beats
+the dedicated search in 49 (24 of 29 in T20, 14 of 20 in ODIs, 11 of 23 in Tests) and the
+all-batters field in 62. The dedicated search beats the all-batters field in only 36.
+
+![Fields for three batters](reports/figures/captain_fields.png)
+
+Below, a T20 death over plays out with the field reset before every ball. The field changes when
+the strike does.
+
+![One over, ball by ball](reports/figures/captain_over.png)
+
+The captain's field for Suryakumar Yadav against spin, at every training checkpoint:
+
+![The field during training](reports/figures/captain_training.gif)
+
+Full results are in [`reports/captain_static.csv`](reports/captain_static.csv),
+[`reports/captain_overs.csv`](reports/captain_overs.csv) and
+[`reports/captain_holdout.csv`](reports/captain_holdout.csv), with the fields in
+[`reports/captain_fields.json`](reports/captain_fields.json).
+
+### Known limitations
+
+- **It inherits the simulator**, including the way the simulator undervalues Test catchers. The
+  captain can only be as good as the simulated deliveries it learns from.
+- **It doesn't play for the strike.** Each ball is rewarded for the cost it saves on that ball, so
+  a field that gives away a single to get the weaker batter on strike earns nothing for it.
+- **Moving fielders is free.** It can reshuffle all nine between balls, which a real captain
+  would not do. It also plans only within an over or spell, with no thought for the next bowler.
+- **The batter doesn't adapt.** Each batter plays to their shot model whatever field is set.
 
 ## The deliveries table
 
@@ -362,6 +473,9 @@ uv run python scripts/build_dataset.py
 uv run python scripts/train_shot_model.py
 uv run python scripts/calibrate.py
 uv run python scripts/optimize_fields.py
+uv run python scripts/build_captain_data.py
+uv run python scripts/train_captain.py
+uv run python scripts/evaluate_captain.py
 uv run python scripts/make_figures.py
 ```
 
@@ -369,6 +483,9 @@ Training takes about 5 minutes on an RTX 4060 (30 epochs of ~9 s each, plus eval
 to a local MLflow database in `mlruns/` (`uv run mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db`
 to browse runs). The checkpoint is written to `data/models/shot_model.pt`.
 Calibrating the simulator takes about 8 minutes and optimising all 76 field scenarios about 16.
+Building the captain's delivery banks and running a search for each of its 1,024 batter contexts
+takes about an hour and a half. Training the captain takes about two hours, and judging it a few
+minutes.
 
 The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
 `--source kaggle` or `--source cricsheet` fetches one source only.
@@ -393,9 +510,10 @@ src/virtual_captain/
   models/               bowler and venue context, feature encoding, shot model, baselines
   sim/                  fielding physics, simulator and its calibration
   optim/                wicket values, analyst fields, CMA-ES search, sensitivity
+  rl/                   the captain's data, the over-by-over environment and its evaluation
   viz/                  field drawing, wagon wheels and scoring-zone roses
 notebooks/              exploration
-reports/                coverage, model, simulator and optimiser results, figures
+reports/                coverage, model, simulator, optimiser and captain results, figures
 tests/
 ```
 
