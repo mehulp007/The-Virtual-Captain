@@ -146,9 +146,9 @@ def measure(data: CaptainData, args, s: Settings) -> pl.DataFrame:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--rounds", type=int, default=4)
-    p.add_argument("--batter-steps", type=int, default=3_000_000)
-    p.add_argument("--captain-steps", type=int, default=4_000_000)
-    p.add_argument("--exploit-steps", type=int, default=2_000_000)
+    p.add_argument("--batter-steps", type=int, default=2_000_000)
+    p.add_argument("--captain-steps", type=int, default=3_000_000)
+    p.add_argument("--exploit-steps", type=int, default=1_500_000)
     p.add_argument("--exploit-only", action="store_true")
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args(argv)
