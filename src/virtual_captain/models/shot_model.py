@@ -155,12 +155,20 @@ class ShotModel:
 
     @torch.no_grad()
     def sample(self, df: pl.DataFrame, n: int = 1, seed: int = 0) -> pl.DataFrame:
-        """Simulate n deliveries per row: contact outcome, then a shot if in play."""
-        gen = torch.Generator(device=self.device).manual_seed(seed)
-        probs, mix = self.predict(df)
-        rep = {k: v.repeat_interleave(n, dim=0) for k, v in mix.items()}
-        outcome = torch.multinomial(probs, n, replacement=True, generator=gen).reshape(-1)
-        theta, aerial, dist = sample_shots(rep, gen)
+        """Simulate n deliveries per row: contact outcome, then a shot if in play.
+
+        The same seed always gives the same deliveries. The von Mises sampler draws from
+        torch's global generator, so that is seeded too, inside a fork so callers' random
+        state is left alone.
+        """
+        devices = [self.device] if self.device != "cpu" else []
+        with torch.random.fork_rng(devices=devices):
+            torch.manual_seed(seed)
+            gen = torch.Generator(device=self.device).manual_seed(seed)
+            probs, mix = self.predict(df)
+            rep = {k: v.repeat_interleave(n, dim=0) for k, v in mix.items()}
+            outcome = torch.multinomial(probs, n, replacement=True, generator=gen).reshape(-1)
+            theta, aerial, dist = sample_shots(rep, gen)
         in_play = outcome == enc.IN_PLAY
         return pl.DataFrame(
             {

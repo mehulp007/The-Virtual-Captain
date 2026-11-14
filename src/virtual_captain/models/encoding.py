@@ -59,9 +59,9 @@ def tracked_innings(lf: pl.LazyFrame) -> pl.LazyFrame:
     cov = legal.group_by("match_id", "innings").agg(
         pl.col("shot_played").is_not_null().mean().alias("_cov")
     )
-    return legal.join(
-        cov.filter(pl.col("_cov") >= MIN_SHOT_COVERAGE), on=["match_id", "innings"]
-    ).drop("_cov")
+    keep = cov.filter(pl.col("_cov") >= MIN_SHOT_COVERAGE)
+    # keep the table's own (sorted) order so seeded sampling picks the same rows every run
+    return legal.join(keep, on=["match_id", "innings"], maintain_order="left").drop("_cov")
 
 
 def add_labels(lf: pl.LazyFrame) -> pl.LazyFrame:

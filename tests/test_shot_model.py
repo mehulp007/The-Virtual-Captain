@@ -7,7 +7,7 @@ import torch
 
 from virtual_captain.models import encoding as enc
 from virtual_captain.models.baselines import BIN_AREA, BatterHistogram
-from virtual_captain.models.shot_model import ShotNet, sample_shots, shot_log_prob
+from virtual_captain.models.shot_model import ShotModel, ShotNet, sample_shots, shot_log_prob
 
 
 def _mixture(n_rows=1, k=3, seed=0):
@@ -77,3 +77,32 @@ def test_histogram_outcome_falls_back_for_unknown_batter():
     base = BatterHistogram().fit(df)
     unseen = df.head(5).with_columns(pl.lit("zz").alias("striker_id"))
     np.testing.assert_allclose(base.outcome_log_prob(unseen), base.global_outcome_log_prob(unseen))
+
+
+def test_same_seed_same_deliveries():
+    torch.manual_seed(0)
+    vocab = enc.Vocab(
+        batters=[], bowlers=[], venue_mean=[1.0, 0.1, 0.3], venue_std=[0.3, 0.05, 0.1]
+    )
+    net = ShotNet(enc.n_features(), vocab.n_batters, vocab.n_bowlers, n_components=3)
+    model = ShotModel(net, vocab, {"net": {"n_components": 3}}, device="cpu")
+    rows = pl.DataFrame(
+        {
+            "format": ["T20"] * 4, "phase": ["middle"] * 4, "bowler_kind": ["fast"] * 4,
+            "bowler_arm": ["right"] * 4, "spin_turn": [None] * 4, "ball_line": [None] * 4,
+            "ball_length": [None] * 4, "left_handed": [False] * 4, "competition_type": ["Intl"] * 4,
+            "year": [2020] * 4, "wickets_before": [2] * 4, "balls_before": [50] * 4,
+            "balls_remaining": [70] * 4, "ball_age": [50] * 4, "target": [None] * 4,
+            "runs_required": [None] * 4, "runs_before": [60] * 4, "striker_balls_faced": [10] * 4,
+            "innings": [1] * 4, "arm_vs_bat": ["same"] * 4, "venue_runs_per_ball": [1.2] * 4,
+            "venue_boundary_rate": [0.12] * 4, "venue_spin_wicket_share": [0.3] * 4,
+            "striker_id": ["x"] * 4, "bowler_id": ["y"] * 4,
+        },
+        schema_overrides={"spin_turn": pl.String, "ball_line": pl.String, "ball_length": pl.String,
+                          "target": pl.Int64, "runs_required": pl.Int64},
+    )  # fmt: skip
+    a = model.sample(rows, n=200, seed=5)
+    torch.rand(10)  # disturb the global generator in between
+    b = model.sample(rows, n=200, seed=5)
+    assert a.equals(b)
+    assert not a.equals(model.sample(rows, n=200, seed=6))
