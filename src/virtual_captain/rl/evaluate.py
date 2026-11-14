@@ -136,6 +136,8 @@ class Played:
     runs: np.ndarray  # (E,) expected runs
     wickets: np.ndarray  # (E,) expected wickets
     balls: np.ndarray  # (E,)
+    natural: np.ndarray | None = None  # (E,) the cost had the batter played naturally, ball
+    # by ball against the same fields (only when a batter with an intent is given)
 
 
 def play(
@@ -147,23 +149,29 @@ def play(
     generic_share: float | None = None,
     seed: int = 0,
     shots_per_ball: int = 256,
+    batter=None,
 ) -> Played:
-    """Play n_overs overs (spells in Tests) of one format with a field-setter."""
+    """Play n_overs overs (spells in Tests) of one format with a field-setter. `batter` (see
+    rl.multi_env) answers each field with an intent; without one batters play naturally."""
     kwargs = {} if generic_share is None else {"generic_share": generic_share}
     overs = Overs(
         data, n=n_overs, bank="judge", batters=batters, formats=(fmt,), seed=seed,
         shots_per_ball=shots_per_ball, **kwargs,
     )  # fmt: skip
     live = np.ones(n_overs, dtype=bool)
-    cost, runs, wkts, balls = (np.zeros(n_overs) for _ in range(4))
+    cost, runs, wkts, balls, nat = (np.zeros(n_overs) for _ in range(5))
     for _ in range(EPISODE_BALLS[fmt]):
-        reward, done, info = overs.step(setter(overs))
+        fields = setter(overs)
+        intent = None if batter is None else batter(overs, fields)
+        reward, done, info = overs.step(fields, intent=intent)
         cost[live] -= reward[live]
         runs[live] += info["expected_runs"][live]
         wkts[live] += info["expected_wickets"][live]
+        if batter is not None:
+            nat[live] += info["natural_cost"][live]
         balls[live] += 1
         live &= ~done
-    return Played(cost, runs, wkts, balls)
+    return Played(cost, runs, wkts, balls, None if batter is None else nat)
 
 
 def compare(results: dict[str, Played], base: str) -> dict[str, tuple[float, float]]:
