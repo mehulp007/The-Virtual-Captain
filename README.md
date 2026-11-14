@@ -9,7 +9,8 @@ given where a batter tends to hit the ball, against a particular type of bowling
 nine fielders stand?
 
 It works from 5.85 million deliveries of Test, ODI and T20 cricket (2001–2026), 3.46 million
-of which carry a wagon-wheel point showing where the ball went.
+of which carry a wagon-wheel point showing where the ball went. [The app](#the-app) sets a field
+for any of 305 batters in any situation, and lets you move the fielders yourself.
 
 ![Scoring zones for 20 batters](reports/figures/scoring_zones.png)
 
@@ -521,6 +522,31 @@ Full results are in [`reports/selfplay_exploitability.csv`](reports/selfplay_exp
 - **It inherits the simulator**, like everything above. Four rounds is also a short run:
   exploitability was still falling at the end in T20s and ODIs.
 
+## The app
+
+![The app](reports/figures/app.png)
+
+Pick a format, pace or spin, the phase, a batter (any of the 305 with enough tracked balls, or
+all batters together) and the match state: wickets down and the over, or how old the ball is in
+a Test. The match state sets what a wicket is worth, and so what the captain plays for.
+
+- **Recommended field.** The captain's field (after self-play) next to the conventional field,
+  the field optimised for all batters and the batter's own CMA-ES search. For each: runs an
+  over, how often a wicket falls, fours, sixes, dot balls and cost a ball, and how far it is
+  from the captain's, with a 95% interval.
+- **Move the fielders.** Click a fielder to pick them up and click anywhere to put them down, or
+  use the sliders. The numbers update straight away and the fielding restrictions are checked.
+  A value map shows where on the ground the selected fielder would save runs or cost them, and
+  names the best legal spot.
+- **Wagon wheel.** The batter's real shots next to the shot model's, coloured by what they
+  brought.
+
+Every field is scored on the same 8,192 simulated deliveries from the batter's shot model, each
+played six times with fresh fielding luck: about 50,000 balls a field, in well under a second.
+The app needs no raw data and no torch. A 31 MB bundle (`scripts/build_app_bundle.py`) holds the
+deliveries, the fields, a sample of real shots and the captain's weights, and the policy runs in
+NumPy. The tests check that it sets exactly the field the trained policy sets.
+
 ## The deliveries table
 
 `scripts/build_dataset.py` turns the raw CSVs into one Parquet file (about 110 MB, 75 columns,
@@ -610,6 +636,16 @@ the batter's forcing risk.
 The Kaggle download needs an API token ([how to set one up](https://www.kaggle.com/docs/api)).
 `--source kaggle` or `--source cricsheet` fetches one source only.
 
+The app needs the `app` extra as well (`uv sync --extra cu128 --extra app`, or with `cpu`):
+
+```bash
+uv run python scripts/build_app_bundle.py   # optional: without it the app downloads the
+uv run streamlit run app/streamlit_app.py   # bundle attached to the latest release
+```
+
+`app/streamlit_app.py` is also what Streamlit Community Cloud runs. It installs only
+`app/requirements.txt`, the app's handful of dependencies, not the training stack.
+
 Checks:
 
 ```bash
@@ -621,6 +657,7 @@ uv run pre-commit install   # optional, lint on every commit
 ## Project layout
 
 ```
+app/                    entry point and requirements for Streamlit Community Cloud
 configs/formats/        phases and fielding restrictions per format
 configs/sim.yaml        fitted simulator parameters
 scripts/                download, build, training and figure scripts
@@ -633,6 +670,8 @@ src/virtual_captain/
   rl/                   the captain's data, the over-by-over environment and its evaluation,
                         the adaptive batter, the two-player game and self-play
   viz/                  field drawing, wagon wheels and scoring-zone roses
+  app/                  the app: its data bundle, engine (captain, scoring, value map), figures
+                        and Streamlit pages
 notebooks/              exploration
 reports/                coverage, model, simulator, optimiser, captain and self-play
                         results, figures
