@@ -3,14 +3,16 @@
 [![CI](https://github.com/mehulp007/The-Virtual-Captain/actions/workflows/ci.yml/badge.svg)](https://github.com/mehulp007/The-Virtual-Captain/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Open the app](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://the-virtual-captain.streamlit.app)
 
 Field placement in cricket is mostly set on instinct. This project looks at it as a data problem:
 given where a batter tends to hit the ball, against a particular type of bowling, where should the
 nine fielders stand?
 
 It works from 5.85 million deliveries of Test, ODI and T20 cricket (2001–2026), 3.46 million
-of which carry a wagon-wheel point showing where the ball went. [The app](#the-app) sets a field
-for any of 305 batters in any situation, and lets you move the fielders yourself.
+of which carry a wagon-wheel point showing where the ball went.
+**[The app](https://the-virtual-captain.streamlit.app)** sets a field for any of 305 batters in
+any situation, and lets you move the fielders yourself.
 
 ![Scoring zones for 20 batters](reports/figures/scoring_zones.png)
 
@@ -523,6 +525,9 @@ Full results are in [`reports/selfplay_exploitability.csv`](reports/selfplay_exp
   exploitability was still falling at the end in T20s and ODIs.
 
 ## The app
+
+**Live at [the-virtual-captain.streamlit.app](https://the-virtual-captain.streamlit.app).** After
+a quiet spell it sleeps, and the first visit takes a minute to wake it.
 
 ![The app](reports/figures/app.png)
 
